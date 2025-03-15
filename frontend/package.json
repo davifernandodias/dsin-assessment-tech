@@ -10,12 +10,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "coverage": "jest --coverage"
-  
   },
   "dependencies": {
     "next": "^15.2.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
