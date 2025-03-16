@@ -1,6 +1,9 @@
-export default function IconNotification() {
+import { SvgInterface } from "@/interfaces/svg-interfaces";
+
+export default function IconNotification({ className }: SvgInterface) {
   return (
     <svg
+      className={className}
       viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
