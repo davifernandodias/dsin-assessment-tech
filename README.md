@@ -1,1 +1,0 @@
-# dsin-assessment-tech
