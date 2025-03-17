@@ -1,0 +1,56 @@
+import "dotenv/config.js";
+import express, { NextFunction, Request, Response } from "express";
+import { createServer } from "http";
+import cors from "cors";
+import { errorHandler } from "./utils/error-handler";
+import logger from "./utils/logger";
+import servicesRoutes from "./routes/services-routes";
+
+const app = express();
+
+if (!process.env.API_URL_FRONTEND_LOCAL) {
+  throw new Error("Missing API_URL_FRONTEND_LOCAL environment variable!");
+}
+if (!process.env.API_PORT) {
+  throw new Error("Missing API_PORT environment variable!");
+}
+
+app.use(express.json());
+
+const corsOptions = {
+  origin: [`${process.env.API_URL_FRONTEND_LOCAL}`],
+  methods: "GET,POST,PUT,DELETE",
+  allowedHeaders: "Content-Type, Authorization",
+};
+app.use(cors(corsOptions));
+
+app.get("/", (req, res) => {
+  return res.json({ ok: true });
+})
+
+app.use("/api", servicesRoutes);
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  logger.error({ err }, "Erro capturado no middleware"); 
+  errorHandler.handle(err, res);
+});
+
+const server = createServer(app);
+
+server.listen(process.env.API_PORT, () => {
+  logger.info("Servidor iniciado na porta " + process.env.API_PORT);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error({ promise, reason }, "Unhandled Rejection"); 
+});
+
+process.on("uncaughtException", (error) => {
+  logger.error({ error }, "Uncaught Exception"); 
+  server.close(() => {
+    logger.info("Server closed"); 
+    process.exit(1);
+  });
+});
+
+export { server, app };
