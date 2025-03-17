@@ -1,71 +1,89 @@
 import { eq } from "drizzle-orm";
-import { 
-  pgEnum, 
-  pgTable, 
-  text, 
+import {
+  pgEnum,
+  pgTable,
+  text,
   timestamp,
   decimal,
+  integer,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 export default eq;
 
 export const users = pgTable("users", {
-  id: text().primaryKey(), 
+  id: text().primaryKey(),
   email: text().notNull().unique(),
   name: text().notNull(),
-  emailVerified: timestamp("email_verified", { mode: "date" }),
-  image: text(),
-});
-
-export const rulesEnum = pgEnum("rules_enum", ["Admin", "Client", "Employee"]);
-
-export const usersHasRules = pgTable("users_has_rules", {
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  rule: rulesEnum("rule").notNull(),
-  assignedAt: timestamp("assigned_at", { mode: "date" }).defaultNow(),
-});
-
-export const services = pgTable("services", {
-  id: text()
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  type: text("type_of_service").notNull(),
-  description: text("description"),
-  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  scheduledAt: timestamp("scheduled_at", { mode: "date" }),
-  status: text("status").default("pending"),
-  createdBy: text("created_by")
-    .notNull()
-    .references(() => users.id, { onDelete: "restrict" }),
+  role: text("role").default("Client"), // Admin, Client
+  phone: text("phone").unique(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
 });
 
+export const serviceTypes = pgTable("service_types", {
+  id: text().primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull().unique(),
+});
 
+export const services = pgTable("services", {
+  id: text().primaryKey().$defaultFn(() => crypto.randomUUID()),
+  typeId: text("type_id")
+    .notNull()
+    .references(() => serviceTypes.id, { onDelete: "restrict" }),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
+
+export const appointments = pgTable("appointments", {
+  id: text().primaryKey().$defaultFn(() => crypto.randomUUID()),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  stylistId: text("stylist_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  serviceId: text("service_id")
+    .notNull()
+    .references(() => services.id, { onDelete: "restrict" }),
+  scheduledAt: timestamp("scheduled_at", { mode: "date" }).notNull(),
+  status: text("status").default("pending"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
+});
 
 export const insertUserSchema = createInsertSchema(users, {
   id: z.string(),
   email: z.string().email("Email inválido"),
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  image: z.string().url("URL da imagem inválida").optional(),
-  emailVerified: z.date().optional(),
+  phone: z.string().optional(),
+  role: z.string().optional(),
 });
 
 export const selectUserSchema = createSelectSchema(users);
 
-export const insertUserRuleSchema = createInsertSchema(usersHasRules, {
-  userId: z.string(),
-  rule: z.enum(["Admin", "Client", "Employee"]),
+export const insertServiceTypeSchema = createInsertSchema(serviceTypes, {
+  id: z.string(),
+  name: z.string().min(2, "Nome do tipo de serviço deve ter pelo menos 2 caracteres"),
 });
 
-export const selectUserRuleSchema = createSelectSchema(usersHasRules);
+export const selectServiceTypeSchema = createSelectSchema(serviceTypes);
 
-export const insertServiceSchema = createInsertSchema(services);
+export const insertServiceSchema = createInsertSchema(services, {
+  typeId: z.string(),
+  durationMinutes: z.number(),
+});
+
 export const selectServiceSchema = createSelectSchema(services);
 
+export const insertAppointmentSchema = createInsertSchema(appointments, {
+  clientId: z.string(),
+  stylistId: z.string(),
+  serviceId: z.string(),
+  scheduledAt: z.date(),
+});
+
 export type User = typeof users.$inferSelect;
-export type UserRule = typeof usersHasRules.$inferSelect;
-export type Rule = "Admin" | "Client" | "Employee";
+export type ServiceType = typeof serviceTypes.$inferSelect;
 export type Service = typeof services.$inferSelect;
+export type Appointment = typeof appointments.$inferSelect;
