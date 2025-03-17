@@ -7,7 +7,7 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import "../globals.css";
 import Header from "@/components/header";
-import SidebarContent from "@/container/sidebar";
+import SidebarContent from "@/components/sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +33,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased flex`}
+          className={`${geistSans.variable} ${geistMono.variable} antialiased flex pl-16`}
         >
           <ThemeProvider
             attribute="class"
