@@ -24,10 +24,6 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-app.get("/", (req, res) => {
-  return res.json({ ok: true });
-})
-
 app.use("/api", servicesRoutes);
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

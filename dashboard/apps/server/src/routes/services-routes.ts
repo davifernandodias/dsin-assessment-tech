@@ -7,37 +7,42 @@ import logger from "../utils/logger";
 const servicesRoutes = Router();
 
 servicesRoutes.post("/services", async (req: Request, res: Response, next: NextFunction) => {
+  const currentUserId = req.query.userId as string | undefined;
+
+  logger.info({ body: req.body, query: req.query }, "Requisição POST /services");
+
+  if (!currentUserId) {
+    logger.warn("ID do usuário não fornecido");
+    return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+  }
+
+  const result = insertServiceSchema.safeParse(req.body);
+
+  if (!result.success) {
+    logger.warn({ errors: result.error.errors }, "Validação falhou no POST /services");
+    return res.status(400).json({
+      error: "Validação falhou",
+      details: result.error.errors,
+    });
+  }
+
+  const { type, description, price, scheduledAt, status } = result.data;
+
+  const newService = {
+    id: crypto.randomUUID(),
+    type,
+    description: description || null,
+    price: price.toString(),
+    scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+    status: status || "pending",
+    createdBy: currentUserId,
+    createdAt: new Date(),
+  };
+
   try {
-    const currentUserId = req.query.userId as string | undefined;
-
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
-    }
-
-    const result = insertServiceSchema.safeParse(req.body);
-
-    if (!result.success) {
-      return res.status(400).json({
-        error: "Validação falhou",
-        details: result.error.errors,
-      });
-    }
-
-    const { type, description, price, scheduledAt, status } = result.data;
-
-    const newService = {
-      id: crypto.randomUUID(),
-      type,
-      description: description || null,
-      price: price.toString(),
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      status: status || "pending",
-      createdBy: currentUserId,
-      createdAt: new Date(),
-    };
-
     const [insertedService] = await db.insert(services).values(newService).returning();
 
+    logger.info({ service: insertedService }, "Serviço criado com sucesso");
     return res.status(201).json({
       message: "Serviço criado com sucesso",
       service: insertedService,
@@ -47,20 +52,23 @@ servicesRoutes.post("/services", async (req: Request, res: Response, next: NextF
       logger.error({ error: error.message }, "Erro ao criar serviço");
       return res.status(500).json({ error: "Erro ao salvar agendamento" });
     } else {
-      logger.error({ error }, "Erro desconhecido");
+      logger.error({ error }, "Erro desconhecido ao criar serviço");
       return res.status(500).json({ error: "Erro desconhecido ocorreu" });
     }
   }
 });
 
 servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFunction) => {
+  const currentUserId = req.query.userId as string | undefined;
+
+  logger.info({ query: req.query }, "Requisição GET /services");
+
+  if (!currentUserId) {
+    logger.warn("ID do usuário não fornecido");
+    return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+  }
+
   try {
-    const currentUserId = req.query.userId as string | undefined;
-
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
-    }
-
     const [userRule] = await db
       .select()
       .from(usersHasRules)
@@ -81,6 +89,7 @@ servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFu
         .execute();
     }
 
+    logger.info({ services: serviceList }, "Serviços recuperados com sucesso");
     return res.status(200).json(serviceList);
   } catch (error) {
     logger.error({ error }, "Erro ao resgatar serviços");
@@ -89,13 +98,16 @@ servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFu
 });
 
 servicesRoutes.get("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+
+  logger.info({ params: req.params }, "Requisição GET /services/:id");
+
+  if (!id) {
+    logger.warn("ID do serviço não fornecido");
+    return res.status(400).json({ error: "ID do serviço é obrigatório" });
+  }
+
   try {
-    const { id } = req.params;
-
-    if (!id) {
-      return res.status(400).json({ error: "ID do serviço é obrigatório" });
-    }
-
     const service = await db
       .select()
       .from(services)
@@ -103,9 +115,11 @@ servicesRoutes.get("/services/:id", async (req: Request, res: Response, next: Ne
       .execute();
 
     if (service.length === 0) {
+      logger.warn({ id }, "Serviço não encontrado");
       return res.status(404).json({ error: "Serviço não encontrado" });
     }
 
+    logger.info({ service: service[0] }, "Serviço recuperado com sucesso");
     return res.status(200).json({
       message: "Resgatado serviço com sucesso",
       service: service[0],
@@ -117,29 +131,34 @@ servicesRoutes.get("/services/:id", async (req: Request, res: Response, next: Ne
 });
 
 servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const currentUserId = req.query.userId as string | undefined;
+
+  logger.info({ body: req.body, params: req.params, query: req.query }, "Requisição PUT /services/:id");
+
+  if (!id) {
+    logger.warn("ID do serviço não fornecido");
+    return res.status(400).json({ error: "ID do serviço é obrigatório" });
+  }
+
+  if (!currentUserId) {
+    logger.warn("ID do usuário não fornecido");
+    return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+  }
+
+  const result = insertServiceSchema.partial().safeParse(req.body);
+
+  if (!result.success) {
+    logger.warn({ errors: result.error.errors }, "Validação falhou no PUT /services/:id");
+    return res.status(400).json({
+      error: "Validação falhou",
+      details: result.error.errors,
+    });
+  }
+
+  const updateData = result.data;
+
   try {
-    const { id } = req.params;
-    const currentUserId = req.query.userId as string | undefined;
-
-    if (!id) {
-      return res.status(400).json({ error: "ID do serviço é obrigatório" });
-    }
-
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
-    }
-
-    const result = insertServiceSchema.partial().safeParse(req.body);
-
-    if (!result.success) {
-      return res.status(400).json({
-        error: "Validação falhou",
-        details: result.error.errors,
-      });
-    }
-
-    const updateData = result.data;
-
     const [existingService] = await db
       .select()
       .from(services)
@@ -147,6 +166,7 @@ servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: Ne
       .execute();
 
     if (!existingService) {
+      logger.warn({ id }, "Serviço não encontrado para atualização");
       return res.status(404).json({ error: "Serviço não encontrado" });
     }
 
@@ -159,6 +179,7 @@ servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: Ne
     const isAdmin = userRule?.rule === "Admin";
 
     if (existingService.createdBy !== currentUserId && !isAdmin) {
+      logger.warn({ currentUserId, serviceOwner: existingService.createdBy }, "Permissão negada para atualizar serviço");
       return res.status(403).json({ error: "Você não tem permissão para atualizar este serviço" });
     }
 
@@ -176,6 +197,7 @@ servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: Ne
       .where(eq(services.id, id))
       .returning();
 
+    logger.info({ updatedService }, "Serviço atualizado com sucesso");
     return res.status(200).json({
       message: "Serviço atualizado com sucesso",
       service: updatedService,
@@ -187,18 +209,22 @@ servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: Ne
 });
 
 servicesRoutes.delete("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const currentUserId = req.query.userId as string | undefined;
+
+  logger.info({ params: req.params, query: req.query }, "Requisição DELETE /services/:id");
+
+  if (!id) {
+    logger.warn("ID do serviço não fornecido");
+    return res.status(400).json({ error: "ID do serviço é obrigatório" });
+  }
+
+  if (!currentUserId) {
+    logger.warn("ID do usuário não fornecido");
+    return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+  }
+
   try {
-    const { id } = req.params;
-    const currentUserId = req.query.userId as string | undefined;
-
-    if (!id) {
-      return res.status(400).json({ error: "ID do serviço é obrigatório" });
-    }
-
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
-    }
-
     const [service] = await db
       .select()
       .from(services)
@@ -206,6 +232,7 @@ servicesRoutes.delete("/services/:id", async (req: Request, res: Response, next:
       .execute();
 
     if (!service) {
+      logger.warn({ id }, "Serviço não encontrado para deleção");
       return res.status(404).json({ error: "Serviço não encontrado" });
     }
 
@@ -218,11 +245,13 @@ servicesRoutes.delete("/services/:id", async (req: Request, res: Response, next:
     const isAdmin = userRule?.rule === "Admin";
 
     if (service.createdBy !== currentUserId && !isAdmin) {
+      logger.warn({ currentUserId, serviceOwner: service.createdBy }, "Permissão negada para deletar serviço");
       return res.status(403).json({ error: "Você não tem permissão para deletar este serviço" });
     }
 
     await db.delete(services).where(eq(services.id, id)).execute();
 
+    logger.info({ id }, "Serviço deletado com sucesso");
     return res.status(200).json({
       message: "Serviço deletado com sucesso",
     });
