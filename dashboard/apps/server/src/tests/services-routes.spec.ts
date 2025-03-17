@@ -14,7 +14,7 @@ describe("Testes para a rota de Serviços", () => {
     const userIdAdmin = process.env.USERID_FOR_TEST;
 
     const response = await request(server)
-    .get(`/api/services/?userId=${userIdAdmin}`);
+    .get(`/api/services?userId=${userIdAdmin}&initial=0&limit=5`)
 
     expect(response.body).toEqual(
       expect.arrayContaining([

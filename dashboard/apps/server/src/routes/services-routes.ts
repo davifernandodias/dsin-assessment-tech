@@ -57,15 +57,28 @@ servicesRoutes.post("/services", async (req: Request, res: Response, next: NextF
     }
   }
 });
-
 servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFunction) => {
   const currentUserId = req.query.userId as string | undefined;
+  const initial = parseInt(req.query.initial as string);
+  const limit = parseInt(req.query.limit as string);
 
   logger.info({ query: req.query }, "Requisição GET /services");
 
+  // Primeiro, verifica se o userId foi fornecido
   if (!currentUserId) {
     logger.warn("ID do usuário não fornecido");
     return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+  }
+
+  // Depois, valida 'initial' e 'limit'
+  if (isNaN(initial) || isNaN(limit)) {
+    logger.warn("Parâmetros 'initial' e 'limit' são obrigatórios e devem ser números");
+    return res.status(400).json({ error: "'initial' e 'limit' são obrigatórios e devem ser números" });
+  }
+
+  if (initial < 0 || limit < 0 || limit < initial) {
+    logger.warn("Parâmetros inválidos de 'initial' e 'limit'");
+    return res.status(400).json({ error: "Parâmetros inválidos de 'initial' e 'limit'" });
   }
 
   try {
@@ -80,12 +93,19 @@ servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFu
     let serviceList;
 
     if (isAdmin) {
-      serviceList = await db.select().from(services).execute();
+      serviceList = await db
+        .select()
+        .from(services)
+        .limit(limit - initial)
+        .offset(initial)
+        .execute();
     } else {
       serviceList = await db
         .select()
         .from(services)
         .where(eq(services.createdBy, currentUserId))
+        .limit(limit - initial)
+        .offset(initial)
         .execute();
     }
 
@@ -96,6 +116,8 @@ servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFu
     return res.status(500).json({ error: "Falha ao buscar serviços" });
   }
 });
+
+
 
 servicesRoutes.get("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
