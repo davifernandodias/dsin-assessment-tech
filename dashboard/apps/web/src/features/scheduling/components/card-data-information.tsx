@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { useEffect, useState } from "react";
 import { NumberTicker } from "@magicui/number-ticker";
 import { Clock, Users, Calendar } from "lucide-react";
+import { Appointment, Service } from "@/@types/services";
 
 const cardData = [
   {
@@ -25,25 +26,8 @@ const cardData = [
   },
 ];
 
-interface Appointment {
-  id: string;
-  clientId: string;
-  serviceId: string;
-  scheduledAt: string;
-  status: string;
-  createdAt: string;
-  clientName: string;
-  clientPhone: string | null;
-}
 
-interface Service {
-  id: string;
-  typeId: string;
-  description: string;
-  price: string;
-  durationMinutes: number;
-  createdAt: string;
-}
+
 
 interface DataInformation {
   appintmentsInformation: Appointment[];
