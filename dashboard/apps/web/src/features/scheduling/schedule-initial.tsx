@@ -1,11 +1,22 @@
-import { getRuleOfUser, gettAllServices } from "@/services/agenda-services";
+import { getAppointmentsByUserId } from "@/services/appointments-services";
+import { getAllServices } from "@/services/services-services";
+import { getAllUsersFormAdmin, getUserByIdAllInformation } from "@/services/users-services";
 import { auth } from "@clerk/nextjs/server";
 import ScheduleAdminPanel from "./container/schedule-admin-panel";
-import ScheduleClientPanel from "./container/schedule-client-panel";
+import ClientSchedulePanel from "./container/schedule-client-panel";
+import { ClientData } from "@/@types/services";
 
 export const InitialSchedule = async () => {
-  const { userId } = await auth();
-
+  const { userId }: any = await auth();
+  const { user } = await getUserByIdAllInformation(userId);
+  const appintmentsInformation = await getAppointmentsByUserId(userId, 0, 10);
+  const servicesInformation = await getAllServices();
+  const usersInformation = await getAllUsersFormAdmin(0,10,userId);
+  const {...DataInformation } = { appintmentsInformation, servicesInformation, usersInformation };
+  const clientData: ClientData = {
+    appointments: appintmentsInformation, 
+    services: servicesInformation, 
+  };
   if (!userId) {
     return (
       <div>
@@ -14,46 +25,11 @@ export const InitialSchedule = async () => {
     );
   }
 
-  const rules = await getRuleOfUser(userId);
-  const services = await gettAllServices({
-    userId: userId,
-    initialValue: 0,
-    limitValue: 5,
-  });
-
-  console.log("Rules retornadas:", rules);
-  console.log("Services retornados:", services);
-
-  if (!rules || (Array.isArray(rules) && rules.length === 0)) {
-    return (
-      <div>
-        <p>Nenhuma regra encontrada para o usuário.</p>
-      </div>
-    );
-  }
-
-  if (Array.isArray(rules)) {
-    const isAdmin = rules.some((ruleItem) => ruleItem.rule === "Admin");
-    if (isAdmin) {
-      return <ScheduleAdminPanel />;
-    }
-    const isClient = rules.some((ruleItem) => ruleItem.rule === "Client");
-    if (isClient) {
-      return <ScheduleClientPanel />;
-    }
+  if (user.role === "Admin") {
+    return <ScheduleAdminPanel userId={userId} DataInformation={DataInformation}/>
   } 
-  else if (typeof rules === "object" && rules !== null) {
-    if (rules.rule === "Admin") {
-      return <ScheduleAdminPanel />;
-    }
-    if (rules.rule === "Client") {
-      return <ScheduleClientPanel />;
-    }
+  else {
+    return <ClientSchedulePanel clientData={clientData} userId={userId}  userData={user} />
   }
 
-  return (
-    <div>
-      <p>Erro: Regra do usuário não reconhecida.</p>
-    </div>
-  );
 };
