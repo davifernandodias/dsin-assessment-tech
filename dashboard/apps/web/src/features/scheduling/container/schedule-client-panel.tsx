@@ -63,10 +63,12 @@ export default function ClientSchedulePanel({
   clientData,
   userId,
   userData,
+  role,
 }: {
   clientData: ClientData;
   userId: string;
   userData: any;
+  role: string;
 }) {
   const isAdmin = userData?.role === "Admin";
   const [activeTab, setActiveTab] = useState("meus-agendamentos");
@@ -87,12 +89,14 @@ export default function ClientSchedulePanel({
       pending: "pendente",
       confirmed: "confirmado",
       canceled: "cancelado",
+      finished: "finalizado",
     };
     const translatedStatus = statusMap[status.toLowerCase()] || status.toLowerCase();
     const variants = {
       confirmado: "bg-green-500 hover:bg-green-600",
       pendente: "bg-amber-500 hover:bg-amber-600",
       cancelado: "bg-rose-500 hover:bg-rose-600",
+      finalizado: "bg-gray-500 hover:bg-gray-600",
     };
     return (
       <Badge className={variants[translatedStatus as keyof typeof variants] || "bg-gray-500"}>
@@ -109,7 +113,8 @@ export default function ClientSchedulePanel({
     const matchesDate = selectedDate
       ? isSameDay(new Date(appointment.scheduledAt), selectedDate)
       : true;
-    return matchesSearch && matchesDate && appointment.clientId === userId;
+    const matchesStatus = ["pending", "confirmed"].includes(appointment.status.toLowerCase());
+    return matchesSearch && matchesDate && matchesStatus && appointment.clientId === userId;
   });
 
   const filteredServices = services.filter((service) =>
@@ -137,7 +142,6 @@ export default function ClientSchedulePanel({
   };
 
   const handleConfirm = (id: string) => {
-    // Apenas admins podem confirmar o status como "confirmed" localmente
     if (isAdmin) {
       setAppointments((prev) =>
         prev.map((appt) => (appt.id === id ? { ...appt, status: "confirmed" } : appt))
@@ -161,7 +165,6 @@ export default function ClientSchedulePanel({
     setAppointments((prev) => [...prev, newAppointment]);
     setIsNewAppointmentModalOpen(false);
   };
-
 
   return (
     <motion.div
@@ -311,8 +314,8 @@ export default function ClientSchedulePanel({
                           <TableCell colSpan={4} className="py-8 text-center">
                             <p className="text-slate-500">
                               {selectedDate
-                                ? "Nenhum agendamento para esta data"
-                                : "Você ainda não tem agendamentos"}
+                                ? "Nenhum agendamento pendente ou confirmado para esta data"
+                                : "Você não tem agendamentos pendentes ou confirmados"}
                             </p>
                           </TableCell>
                         </TableRow>
@@ -378,12 +381,12 @@ export default function ClientSchedulePanel({
       {selectedAppointment && (
         <DetailScheduleForm
           isOpen={isModalOpen}
+          role={role}
           onClose={handleCloseModal}
           appointment={selectedAppointment}
           service={services.find((s) => s.id === selectedAppointment.serviceId) || null}
           services={services}
           userId={userId}
-          userData={userData}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           onUpdate={handleUpdate}
