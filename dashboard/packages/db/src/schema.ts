@@ -21,7 +21,7 @@ export const users = pgTable("users", {
 });
 
 export const serviceTypes = pgTable("service_types", {
-  id: text().primaryKey().$defaultFn(() => crypto.randomUUID()),
+  id: text().primaryKey(),
   name: text("name").notNull().unique(),
 });
 
@@ -39,9 +39,6 @@ export const services = pgTable("services", {
 export const appointments = pgTable("appointments", {
   id: text().primaryKey().$defaultFn(() => crypto.randomUUID()),
   clientId: text("client_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  stylistId: text("stylist_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   serviceId: text("service_id")
@@ -78,7 +75,6 @@ export const selectServiceSchema = createSelectSchema(services);
 
 export const insertAppointmentSchema = createInsertSchema(appointments, {
   clientId: z.string(),
-  stylistId: z.string(),
   serviceId: z.string(),
   scheduledAt: z.date(),
 });
