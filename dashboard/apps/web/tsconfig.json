@@ -9,6 +9,8 @@
       "@ui/*": ["./src/components/ui/*"],
       "@container/*": ["./src/container/*"],
       "@components/*": ["./src/components/*"],
+      "@magicui/*": ["./src/components/magicui/*"],
+
       "@interfaces/*": ["./src/interfaces/*"],
       "@lib/*": ["./src/lib/*"],
       "@styles/*": ["./src/styles/*"],
