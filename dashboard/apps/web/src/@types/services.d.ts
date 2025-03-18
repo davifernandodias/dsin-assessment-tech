@@ -32,3 +32,19 @@ interface ClientData {
   appointments: Appointment[];
   services: Service[];
 }
+
+interface Appointment {
+  id: string;
+  clientId: string;
+  serviceId: string;
+  scheduledAt: string;
+  status: string;
+  createdAt: string;
+  clientName: string;
+  clientPhone: string;
+}
+
+interface AppointmentsHistoryTableProps {
+  appointments: Appointment[];
+  role: string;
+}
