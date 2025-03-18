@@ -1,14 +1,14 @@
 import express, { NextFunction, Request, Response, Router } from "express";
 import logger from "../utils/logger";
 import { db } from "@repo/db/client";
-import { eq } from "@repo/db";
+import { eq, and } from "@repo/db";
 import { appointments, insertAppointmentSchema, users, services } from "@repo/db/schema";
 
 const appointmentsRoutes = Router();
 
 const isMoreThanTwoDaysAway = (scheduledAt: Date): boolean => {
   const now = new Date();
-  const twoDaysInMs = 2 * 24 * 60 * 60 * 1000; 
+  const twoDaysInMs = 2 * 24 * 60 * 60 * 1000; // 2 dias em milissegundos
   return scheduledAt.getTime() - now.getTime() > twoDaysInMs;
 };
 
@@ -39,23 +39,24 @@ appointmentsRoutes.post(
       });
     }
 
-    const { clientId, stylistId, serviceId, scheduledAt, status } = result.data;
+    const { clientId, serviceId, scheduledAt, status } = result.data;
 
     try {
       const existingAppointment = await db
         .select()
         .from(appointments)
         .where(
-          eq(appointments.clientId, clientId) &&
-          eq(appointments.stylistId, stylistId) &&
-          eq(appointments.serviceId, serviceId) &&
-          eq(appointments.scheduledAt, scheduledAt)
+          and(
+            eq(appointments.clientId, clientId),
+            eq(appointments.serviceId, serviceId),
+            eq(appointments.scheduledAt, scheduledAt)
+          )
         )
         .execute();
 
       if (existingAppointment.length > 0) {
         logger.warn(
-          { clientId, stylistId, serviceId, scheduledAt },
+          { clientId, serviceId, scheduledAt },
           "Agendamento duplicado encontrado"
         );
         return res.status(400).json({
@@ -73,12 +74,6 @@ appointmentsRoutes.post(
       return res.status(400).json({ error: "Cliente inválido" });
     }
 
-    const [stylist] = await db.select().from(users).where(eq(users.id, stylistId)).execute();
-    if (!stylist) {
-      logger.warn({ stylistId }, "Estilista não encontrado");
-      return res.status(400).json({ error: "Estilista inválido" });
-    }
-
     const [service] = await db.select().from(services).where(eq(services.id, serviceId)).execute();
     if (!service) {
       logger.warn({ serviceId }, "Serviço não encontrado");
@@ -88,7 +83,6 @@ appointmentsRoutes.post(
     const newAppointment = {
       id: crypto.randomUUID(),
       clientId,
-      stylistId,
       serviceId,
       scheduledAt,
       status: status || "pending",
@@ -109,6 +103,92 @@ appointmentsRoutes.post(
     } catch (error) {
       logger.error({ error }, "Erro ao criar agendamento");
       return res.status(500).json({ error: "Erro ao salvar agendamento" });
+    }
+  }
+);
+
+appointmentsRoutes.get(
+  "/appointments",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const currentUserId = req.query.userId as string | undefined;
+    const initial = parseInt(req.query.initial as string) || 0;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    logger.info({ query: req.query }, "Requisição GET /appointments");
+
+    if (!currentUserId) {
+      logger.warn("ID do usuário não fornecido");
+      return res
+        .status(400)
+        .json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+    }
+
+    if (isNaN(initial) || isNaN(limit) || initial < 0 || limit < 0) {
+      logger.warn("Parâmetros 'initial' e 'limit' devem ser números positivos");
+      return res
+        .status(400)
+        .json({ error: "Parâmetros 'initial' e 'limit' devem ser números positivos" });
+    }
+
+    try {
+      const [currentUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, currentUserId))
+        .execute();
+
+      if (!currentUser) {
+        logger.warn({ currentUserId }, "Usuário atual não encontrado");
+        return res.status(404).json({ error: "Usuário atual não encontrado" });
+      }
+
+      let appointmentList;
+
+      if (currentUser.role === "Admin") {
+        appointmentList = await db
+          .select({
+            id: appointments.id,
+            clientId: appointments.clientId,
+            serviceId: appointments.serviceId,
+            scheduledAt: appointments.scheduledAt,
+            status: appointments.status,
+            createdAt: appointments.createdAt,
+            clientName: users.name,
+            clientPhone: users.phone,
+          })
+          .from(appointments)
+          .innerJoin(users, eq(appointments.clientId, users.id))
+          .limit(limit)
+          .offset(initial)
+          .execute();
+      } else {
+        appointmentList = await db
+          .select({
+            id: appointments.id,
+            clientId: appointments.clientId,
+            serviceId: appointments.serviceId,
+            scheduledAt: appointments.scheduledAt,
+            status: appointments.status,
+            createdAt: appointments.createdAt,
+            clientName: users.name,
+            clientPhone: users.phone,
+          })
+          .from(appointments)
+          .innerJoin(users, eq(appointments.clientId, users.id))
+          .where(eq(appointments.clientId, currentUserId))
+          .limit(limit)
+          .offset(initial)
+          .execute();
+      }
+
+      logger.info(
+        { appointments: appointmentList },
+        "Agendamentos recuperados com sucesso"
+      );
+      return res.status(200).json(appointmentList);
+    } catch (error) {
+      logger.error({ error }, "Erro ao resgatar agendamentos");
+      return res.status(500).json({ error: "Falha ao buscar agendamentos" });
     }
   }
 );
@@ -192,7 +272,7 @@ appointmentsRoutes.put(
 
       if (
         currentUser.role !== "Admin" &&
-        !isMoreThanTwoDaysAway(existingAppointment.scheduledAt)
+        !isMoreThanTwoDaysAway(new Date(existingAppointment.scheduledAt))
       ) {
         logger.warn(
           { currentUserId, appointment: existingAppointment },
@@ -203,22 +283,30 @@ appointmentsRoutes.put(
         });
       }
 
-      if (updateData.scheduledAt) {
+      if (
+        updateData.scheduledAt &&
+        updateData.scheduledAt.getTime() !== existingAppointment.scheduledAt.getTime()
+      ) {
         const conflictingAppointment = await db
           .select()
           .from(appointments)
           .where(
-            eq(appointments.clientId, existingAppointment.clientId) &&
-            eq(appointments.stylistId, existingAppointment.stylistId) &&
-            eq(appointments.serviceId, existingAppointment.serviceId) &&
-            eq(appointments.scheduledAt, updateData.scheduledAt) &&
-            eq(appointments.id, id) 
+            and(
+              eq(appointments.clientId, existingAppointment.clientId),
+              eq(appointments.serviceId, updateData.serviceId || existingAppointment.serviceId),
+              eq(appointments.scheduledAt, updateData.scheduledAt),
+              eq(appointments.id, id) 
+            )
           )
           .execute();
 
         if (conflictingAppointment.length > 0) {
           logger.warn(
-            { clientId: existingAppointment.clientId, stylistId: existingAppointment.stylistId, serviceId: existingAppointment.serviceId, scheduledAt: updateData.scheduledAt },
+            {
+              clientId: existingAppointment.clientId,
+              serviceId: updateData.serviceId || existingAppointment.serviceId,
+              scheduledAt: updateData.scheduledAt,
+            },
             "Conflito de agendamento encontrado"
           );
           return res.status(400).json({
@@ -229,7 +317,6 @@ appointmentsRoutes.put(
 
       const updatedFields: Partial<typeof appointments.$inferInsert> = {};
       if (updateData.clientId) updatedFields.clientId = updateData.clientId;
-      if (updateData.stylistId) updatedFields.stylistId = updateData.stylistId;
       if (updateData.serviceId) updatedFields.serviceId = updateData.serviceId;
       if (updateData.scheduledAt) updatedFields.scheduledAt = updateData.scheduledAt;
       if (updateData.status) updatedFields.status = updateData.status;
@@ -316,10 +403,10 @@ appointmentsRoutes.delete(
       ) {
         logger.warn(
           { currentUserId, appointment },
-          "Agendamento não pode ser deletado pois está a menos de 2 dias de distância"
+          "Não-administradores não podem deletar com menos de 2 dias"
         );
         return res.status(403).json({
-          error: "Agendamento só pode ser deletado se estiver a mais de 2 dias de distância",
+          error: "Não é possível deletar agendamentos com menos de 2 dias de antecedência",
         });
       }
 

@@ -1,4 +1,4 @@
-import "dotenv/config.js";
+import "dotenv/config"; 
 import express, { NextFunction, Request, Response } from "express";
 import { createServer } from "http";
 import cors from "cors";
@@ -20,11 +20,15 @@ if (!process.env.API_PORT) {
 app.use(express.json());
 
 const corsOptions = {
-  origin: [`${process.env.API_URL_FRONTEND_LOCAL}`],
-  methods: "GET,POST,PUT,DELETE",
-  allowedHeaders: "Content-Type, Authorization",
+  origin: "http://localhost:3000", 
+  methods: ["GET", "POST", "PUT", "DELETE"], 
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true, 
 };
+
 app.use(cors(corsOptions));
+
+app.options("*", cors(corsOptions));
 
 app.use("/api", servicesRoutes);
 app.use("/api", usersRoutes);

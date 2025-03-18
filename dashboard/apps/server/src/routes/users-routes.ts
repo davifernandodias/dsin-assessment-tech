@@ -56,30 +56,51 @@ usersRoutes.get(
   async (req: Request, res: Response, next: NextFunction) => {
     const initial = parseInt(req.query.initial as string);
     const limit = parseInt(req.query.limit as string);
+    const currentUserId = req.query.userId as string | undefined;
 
-    logger.info({ query: req.query }, "Requisição GET /users");
-
-    if (isNaN(initial) || isNaN(limit)) {
-      logger.warn("Parâmetros 'initial' e 'limit' são obrigatórios e devem ser números");
-      return res
-        .status(400)
-        .json({ error: "'initial' e 'limit' são obrigatórios e devem ser números" });
-    }
-
-    if (initial < 0 || limit < 0 || limit < initial) {
-      logger.warn("Parâmetros inválidos de 'initial' e 'limit'");
-      return res
-        .status(400)
-        .json({ error: "Parâmetros inválidos de 'initial' e 'limit'" });
+    if (!currentUserId) {
+      logger.warn("Id do usuário não informado");
+      return res.status(400).json({ error: "ID do usuário é obrigatório" });
     }
 
     try {
-      const userList = await db
+      const [currentUser] = await db
         .select()
         .from(users)
-        .limit(limit - initial)
-        .offset(initial)
+        .where(eq(users.id, currentUserId))
         .execute();
+
+      if (!currentUser) {
+        logger.warn({ currentUserId }, "Usuário atual não encontrado");
+        return res.status(404).json({ error: "Usuário atual não encontrado" });
+      }
+
+      if (isNaN(initial) || isNaN(limit)) {
+        logger.warn("Parâmetros 'initial' e 'limit' são obrigatórios e devem ser números");
+        return res.status(400).json({
+          error: "'initial' e 'limit' são obrigatórios e devem ser números",
+        });
+      }
+
+      if (initial < 0 || limit < 0 || limit < initial) {
+        logger.warn("Parâmetros inválidos de 'initial' e 'limit'");
+        return res
+          .status(400)
+          .json({ error: "Parâmetros inválidos de 'initial' e 'limit'" });
+      }
+
+      let userList;
+
+      if (currentUser.role === "Admin") {
+        userList = await db
+          .select()
+          .from(users)
+          .limit(limit - initial)
+          .offset(initial)
+          .execute();
+      } else {
+        userList = [currentUser];
+      }
 
       logger.info({ users: userList }, "Usuários recuperados com sucesso");
       return res.status(200).json(userList);
@@ -89,7 +110,6 @@ usersRoutes.get(
     }
   }
 );
-
 usersRoutes.get(
   "/users/:id",
   async (req: Request, res: Response, next: NextFunction) => {

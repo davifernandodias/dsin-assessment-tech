@@ -1,7 +1,7 @@
 import express, { NextFunction, Request, Response, Router } from "express";
 import { db } from "@repo/db/client";
 import { eq } from "@repo/db";
-import { insertServiceSchema, services, serviceTypes } from "@repo/db/schema";
+import { insertServiceSchema, services, serviceTypes, insertServiceTypeSchema } from "@repo/db/schema";
 import logger from "../utils/logger";
 
 const servicesRoutes = Router();
@@ -32,20 +32,44 @@ servicesRoutes.post(
 
     const { typeId, description, price, durationMinutes } = result.data;
 
-    const [serviceType] = await db
+    const [existingTypeById] = await db
       .select()
       .from(serviceTypes)
       .where(eq(serviceTypes.id, typeId))
       .execute();
 
-    if (!serviceType) {
-      logger.warn({ typeId }, "Tipo de serviço não encontrado");
-      return res.status(400).json({ error: "Tipo de serviço inválido" });
+    if (!existingTypeById) {
+      const newServiceType = {
+        id: typeId, 
+        name: typeId, 
+      };
+
+      const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
+      if (!typeResult.success) {
+        logger.warn({ errors: typeResult.error.errors }, "Validação do novo tipo de serviço falhou");
+        return res.status(400).json({
+          error: "Validação do tipo de serviço falhou",
+          details: typeResult.error.errors,
+        });
+      }
+
+      const insertedTypes = await db
+        .insert(serviceTypes)
+        .values(newServiceType)
+        .returning();
+
+      const insertedType = insertedTypes[0];
+      if (!insertedType) {
+        logger.error("Falha ao inserir novo tipo de serviço");
+        return res.status(500).json({ error: "Erro ao criar tipo de serviço" });
+      }
+
+      logger.info({ serviceType: insertedType }, "Novo tipo de serviço criado com sucesso");
     }
 
     const newService = {
       id: crypto.randomUUID(),
-      typeId,
+      typeId, 
       description: description || null,
       price: price.toString(),
       durationMinutes,
@@ -75,6 +99,109 @@ servicesRoutes.post(
   }
 );
 
+servicesRoutes.put(
+  "/services/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    logger.info(
+      { body: req.body, params: req.params, query: req.query },
+      "Requisição PUT /services/:id"
+    );
+
+    if (!id) {
+      logger.warn("ID do serviço não fornecido");
+      return res.status(400).json({ error: "ID do serviço é obrigatório" });
+    }
+
+    const result = insertServiceSchema.partial().safeParse(req.body);
+
+    if (!result.success) {
+      logger.warn(
+        { errors: result.error.errors },
+        "Validação falhou no PUT /services/:id"
+      );
+      return res.status(400).json({
+        error: "Validação falhou",
+        details: result.error.errors,
+      });
+    }
+
+    const updateData = result.data;
+
+    try {
+      const [existingService] = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, id))
+        .execute();
+
+      if (!existingService) {
+        logger.warn({ id }, "Serviço não encontrado para atualização");
+        return res.status(404).json({ error: "Serviço não encontrado" });
+      }
+
+      const updatedFields: Partial<typeof services.$inferInsert> = {};
+
+      if (updateData.typeId) {
+        const [existingTypeById] = await db
+          .select()
+          .from(serviceTypes)
+          .where(eq(serviceTypes.id, updateData.typeId))
+          .execute();
+
+        if (!existingTypeById) {
+          const newServiceType = {
+            id: updateData.typeId, // Usar o typeId enviado como id
+            name: updateData.typeId, // Usar o mesmo valor como nome
+          };
+
+          const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
+          if (!typeResult.success) {
+            logger.warn({ errors: typeResult.error.errors }, "Validação do novo tipo de serviço falhou");
+            return res.status(400).json({
+              error: "Validação do tipo de serviço falhou",
+              details: typeResult.error.errors,
+            });
+          }
+
+          const insertedTypes = await db
+            .insert(serviceTypes)
+            .values(newServiceType)
+            .returning();
+
+          const insertedType = insertedTypes[0];
+          if (!insertedType) {
+            logger.error("Falha ao inserir novo tipo de serviço");
+            return res.status(500).json({ error: "Erro ao criar tipo de serviço" });
+          }
+
+          logger.info({ serviceType: insertedType }, "Novo tipo de serviço criado com sucesso");
+        }
+        updatedFields.typeId = updateData.typeId;
+      }
+
+      if (updateData.description !== undefined) updatedFields.description = updateData.description;
+      if (updateData.price) updatedFields.price = updateData.price.toString();
+      if (updateData.durationMinutes) updatedFields.durationMinutes = updateData.durationMinutes;
+
+      const [updatedService] = await db
+        .update(services)
+        .set(updatedFields)
+        .where(eq(services.id, id))
+        .returning();
+
+      logger.info({ updatedService }, "Serviço atualizado com sucesso");
+      return res.status(200).json({
+        message: "Serviço atualizado com sucesso",
+        service: updatedService,
+      });
+    } catch (error) {
+      logger.error({ error }, "Erro ao atualizar serviço");
+      return res.status(500).json({ error: "Falha ao atualizar serviço" });
+    }
+  }
+);
 servicesRoutes.get(
   "/services",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -227,88 +354,6 @@ servicesRoutes.get(
     } catch (error) {
       logger.error({ error }, "Erro ao buscar tipo de serviço");
       return res.status(500).json({ error: "Falha ao buscar tipo de serviço" });
-    }
-  }
-);
-
-servicesRoutes.put(
-  "/services/:id",
-  async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-
-    logger.info(
-      { body: req.body, params: req.params, query: req.query },
-      "Requisição PUT /services/:id"
-    );
-
-    if (!id) {
-      logger.warn("ID do serviço não fornecido");
-      return res.status(400).json({ error: "ID do serviço é obrigatório" });
-    }
-
-    const result = insertServiceSchema.partial().safeParse(req.body);
-
-    if (!result.success) {
-      logger.warn(
-        { errors: result.error.errors },
-        "Validação falhou no PUT /services/:id"
-      );
-      return res.status(400).json({
-        error: "Validação falhou",
-        details: result.error.errors,
-      });
-    }
-
-    const updateData = result.data;
-
-    try {
-      const [existingService] = await db
-        .select()
-        .from(services)
-        .where(eq(services.id, id))
-        .execute();
-
-      if (!existingService) {
-        logger.warn({ id }, "Serviço não encontrado para atualização");
-        return res.status(404).json({ error: "Serviço não encontrado" });
-      }
-
-      const updatedFields: Partial<typeof services.$inferInsert> = {};
-      if (updateData.typeId) {
-        const [serviceType] = await db
-          .select()
-          .from(serviceTypes)
-          .where(eq(serviceTypes.id, updateData.typeId))
-          .execute();
-        if (!serviceType) {
-          logger.warn(
-            { typeId: updateData.typeId },
-            "Tipo de serviço não encontrado"
-          );
-          return res.status(400).json({ error: "Tipo de serviço inválido" });
-        }
-        updatedFields.typeId = updateData.typeId;
-      }
-      if (updateData.description !== undefined)
-        updatedFields.description = updateData.description;
-      if (updateData.price) updatedFields.price = updateData.price.toString();
-      if (updateData.durationMinutes)
-        updatedFields.durationMinutes = updateData.durationMinutes;
-
-      const [updatedService] = await db
-        .update(services)
-        .set(updatedFields)
-        .where(eq(services.id, id))
-        .returning();
-
-      logger.info({ updatedService }, "Serviço atualizado com sucesso");
-      return res.status(200).json({
-        message: "Serviço atualizado com sucesso",
-        service: updatedService,
-      });
-    } catch (error) {
-      logger.error({ error }, "Erro ao atualizar serviço");
-      return res.status(500).json({ error: "Falha ao atualizar serviço" });
     }
   }
 );
