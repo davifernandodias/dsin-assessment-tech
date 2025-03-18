@@ -1,4 +1,6 @@
 import { SidebarItem } from "@/components/ui/sidebar-item";
+import { getUserByIdAllInformation } from "@/services/users-services";
+import { auth } from "@clerk/nextjs/server";
 import IconLogoLorempsun from "@public/svg/icons/icon-logo-lorempsun";
 import {
   LayoutDashboard,
@@ -8,7 +10,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-export default function SidebarContent() {
+export const  SidebarContent = async () =>  {
+  const { userId }: any = await auth();
+  const user = await getUserByIdAllInformation(userId);
   return (
     <aside
       className="fixed left-0 top-0 h-screen w-24 bg-white px-4 py-10 shadow-lg transition-all duration-500 ease-in-out dark:bg-gray-900"
@@ -18,19 +22,25 @@ export default function SidebarContent() {
       </div>
 
       <nav className="flex flex-col gap-12">
-        <Link href={"/"}>
+        <Link href={"/agenda"}>
           <SidebarItem icon={<LayoutDashboard />} label="Home" path="/" />
         </Link>
-        <Link href={"/dashboard"}>
-          <SidebarItem
-            icon={<ChartColumnIncreasing />}
-            label="Dashboard"
-            path="/dashboard"
-          />
-        </Link>
+        { user.user.role === "Admin" ?
+          <Link href={"/dashboard"}>
+            <SidebarItem
+              icon={<ChartColumnIncreasing />}
+              label="Dashboard"
+              path="/dashboard"
+            />
+          </Link>
+          : ""
+        }
+
         <Link href={"/history"}>
           <SidebarItem icon={<Clock />} label="Histórico" path="/history" />
         </Link>
+
+        { user.user.role === "Admin" ? 
         <Link href={"/calendar"}>
           <SidebarItem
             icon={<CalendarDays />}
@@ -38,6 +48,8 @@ export default function SidebarContent() {
             path="/calendar"
           />
         </Link>
+        : ""
+        }
       </nav>
     </aside>
   );
