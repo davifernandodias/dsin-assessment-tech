@@ -39,7 +39,7 @@ export default function NewServiceForm({
     price: "0",
     durationMinutes: 0,
   });
-  const [error, setError] = useState<string | null>(null); // Adicionar estado para erro
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -47,7 +47,7 @@ export default function NewServiceForm({
       ...prev,
       [name]: name === "durationMinutes" ? parseInt(value) || 0 : value,
     }));
-    setError(null); // Limpar erro ao mudar valores
+    setError(null);
   };
 
   const handleCreateService = async () => {

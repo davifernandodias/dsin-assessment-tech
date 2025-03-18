@@ -40,6 +40,7 @@ import CardDataInformation from "../components/card-data-information";
 import DetailScheduleForm from "../components/detail-schedule-form";
 import NewServiceForm from "../components/new-service-form";
 import DetailServiceForm from "../components/detail-service-form";
+import { Appointment, Service } from "@/@types/services";
 
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -63,25 +64,7 @@ const itemVariants = {
   },
 };
 
-interface Appointment {
-  id: string;
-  clientId: string;
-  serviceId: string;
-  scheduledAt: string;
-  status: string;
-  createdAt: string;
-  clientName: string;
-  clientPhone: string | null;
-}
 
-interface Service {
-  id: string;
-  typeId: string;
-  description: string;
-  price: string;
-  durationMinutes: number;
-  createdAt: string;
-}
 
 interface DataInformation {
   appintmentsInformation: Appointment[];
@@ -91,9 +74,11 @@ interface DataInformation {
 export default function ScheduleAdminPanel({
   DataInformation,
   userId,
+  role,
 }: {
   DataInformation: DataInformation;
   userId: string;
+  role: string;
 }) {
   const [activeTab, setActiveTab] = useState("agendamentos");
   const [searchTerm, setSearchTerm] = useState("");
@@ -116,14 +101,14 @@ export default function ScheduleAdminPanel({
       pending: "pendente",
       confirmed: "confirmado",
       canceled: "cancelado",
-      active: "ativo",
+      finished: "finalizado", // Adicionado para consistência
     };
     const translatedStatus = statusMap[status.toLowerCase()] || status.toLowerCase();
     const variants = {
       confirmado: "bg-green-500 hover:bg-green-600",
       pendente: "bg-amber-500 hover:bg-amber-600",
       cancelado: "bg-rose-500 hover:bg-rose-600",
-      ativo: "bg-violet-500 hover:bg-violet-600",
+      finalizado: "bg-gray-500 hover:bg-gray-600", // Adicionado para consistência
     };
     return (
       <Badge
@@ -146,7 +131,7 @@ export default function ScheduleAdminPanel({
     const matchesDate = selectedDate
       ? isSameDay(new Date(appointment.scheduledAt), selectedDate)
       : true;
-    const isValidStatus = ["confirmed", "pending", "finished"].includes(
+    const isValidStatus = ["confirmed", "pending"].includes(
       appointment.status.toLowerCase()
     );
     return matchesSearch && matchesDate && isValidStatus;
@@ -254,7 +239,7 @@ export default function ScheduleAdminPanel({
                 value="agendamentos"
                 className="cursor-pointer transition-all duration-200 data-[state=active]:bg-violet-600 data-[state=active]:text-white"
               >
-                Agendamentos ({uniqueAppointments.length})
+                Agendamentos ({filteredAppointments.length})
               </TabsTrigger>
               <TabsTrigger
                 value="servicos"
@@ -303,6 +288,7 @@ export default function ScheduleAdminPanel({
                           <DropdownMenuItem>Confirmados</DropdownMenuItem>
                           <DropdownMenuItem>Pendentes</DropdownMenuItem>
                           <DropdownMenuItem>Cancelados</DropdownMenuItem>
+                          <DropdownMenuItem>Finalizados</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <Popover>
@@ -316,7 +302,7 @@ export default function ScheduleAdminPanel({
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <div className="p-3">
+                          <div className="p-2">
                             <Calendar
                               mode="single"
                               selected={selectedDate}
@@ -386,8 +372,8 @@ export default function ScheduleAdminPanel({
                               <TableCell colSpan={5} className="py-8 text-center">
                                 <p className="text-slate-500">
                                   {selectedDate
-                                    ? "Nenhum agendamento para esta data"
-                                    : "Nenhum agendamento encontrado"}
+                                    ? "Nenhum agendamento pendente ou confirmado para esta data"
+                                    : "Nenhum agendamento pendente ou confirmado encontrado"}
                                 </p>
                               </TableCell>
                             </TableRow>
@@ -463,9 +449,9 @@ export default function ScheduleAdminPanel({
           </Tabs>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="md:col-span-1 p-0 hidden lg:flex">
-          <Card className="flex justify-center border-violet-100 p-0 shadow-sm">
-            <CardHeader className="border-b border-violet-100 bg-violet-50 py-12">
+        <motion.div variants={itemVariants} className="md:col-span-1 p-0 py-0 hidden lg:flex">
+          <Card className="flex justify-center border-violet-100 p-0 py-0 shadow-sm">
+            <CardHeader className="border-b border-violet-100 bg-violet-50 py-28">
               <CardTitle className="text-lg text-violet-800 sm:text-xl">Calendário</CardTitle>
               <CardDescription className="text-sm">
                 Visualize todos os agendamentos
@@ -477,7 +463,7 @@ export default function ScheduleAdminPanel({
                 selected={selectedDate}
                 onSelect={handleDateSelect}
                 locale={ptBR}
-                className="w-full flex justify-center cursor-pointer  rounded-md border-violet-100 text-sm sm:text-base"
+                className="w-full flex justify-center cursor-pointer rounded-md border-violet-100 text-sm sm:text-base"
                 modifiers={{
                   booked: (date) => scheduledDates.includes(date.toDateString()),
                 }}
@@ -490,11 +476,11 @@ export default function ScheduleAdminPanel({
                   table: "w-full border-collapse space-y-1",
                   head_row: "flex",
                   head_cell:
-                    "text-muted-foreground  cursor-pointer rounded-md w-8 font-normal text-[0.875rem] sm:w-10 sm:text-[1rem]",
+                    "text-muted-foreground cursor-pointer rounded-md w-8 font-normal text-[0.875rem] sm:w-10 sm:text-[1rem]",
                   row: "flex w-full mt-1",
-                  cell: "h-8 w-8 text-center  text-sm p-0 relative rounded-md sm:h-10 sm:w-10",
-                  day: "h-8 w-8 p-0 font-normal cursor-pointer  aria-selected:bg-violet-100 aria-selected:text-violet-900 sm:h-10 sm:w-10",
-                  day_selected: "bg-violet-600  cursor-pointer text-white hover:bg-violet-700",
+                  cell: "h-8 w-8 text-center text-sm p-0 relative rounded-md sm:h-10 sm:w-10",
+                  day: "h-8 w-8 p-0 font-normal cursor-pointer aria-selected:bg-violet-100 aria-selected:text-violet-900 sm:h-10 sm:w-10",
+                  day_selected: "bg-violet-600 cursor-pointer text-white hover:bg-violet-700",
                   day_today: "border-2 border-violet-500",
                 }}
               />
@@ -507,6 +493,7 @@ export default function ScheduleAdminPanel({
         <DetailScheduleForm
           isOpen={isModalOpen}
           onClose={handleCloseModal}
+          role={role}
           appointment={selectedAppointment}
           service={services.find((s) => s.id === selectedAppointment.serviceId) || null}
           services={services}

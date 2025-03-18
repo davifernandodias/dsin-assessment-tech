@@ -56,7 +56,7 @@ interface DetailScheduleFormProps {
   service: Service | null;
   services: Service[];
   userId: string;
-  userData?: any;
+  role: string;
   onConfirm: (id: string) => void;
   onCancel: (id: string) => void;
   onUpdate: (id: string, updatedData: Partial<Appointment>) => void;
@@ -69,22 +69,23 @@ export default function DetailScheduleForm({
   service,
   services,
   userId,
-  userData,
+  role,
   onConfirm,
   onCancel,
   onUpdate,
 }: DetailScheduleFormProps) {
-  const isAdmin = userData?.role === "Admin";
-  const isClint = userData?.role === "Client";
+  const isAdmin = role === "Admin";
+  const isClient = role === "Client";
   const initialScheduledAt = appointment ? new Date(appointment.scheduledAt) : undefined;
 
   const [formData, setFormData] = useState<Partial<Appointment>>({
     clientName: appointment?.clientName || "",
     scheduledAt: appointment?.scheduledAt || "",
-    status: appointment?.status || "",
     serviceId: appointment?.serviceId || "",
-    clientPhone: appointment?.clientPhone || "",
+    clientPhone: isAdmin ? appointment?.clientPhone || "" : undefined, 
+    status: isAdmin ? appointment?.status || "" : "pending", 
   });
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialScheduledAt);
   const [selectedHour, setSelectedHour] = useState<string>(
     initialScheduledAt ? format(initialScheduledAt, "HH:mm") : "08:00"
@@ -92,11 +93,21 @@ export default function DetailScheduleForm({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const canUserEdit = !isAdmin && appointment
+  const canClientEdit = isClient && appointment
     ? differenceInDays(new Date(appointment.scheduledAt), new Date()) > 2
     : true;
 
-  useEffect(() => {}, [isAdmin, canUserEdit, isOpen, appointment]);
+  useEffect(() => {
+    setFormData({
+      clientName: appointment?.clientName || "",
+      scheduledAt: appointment?.scheduledAt || "",
+      serviceId: appointment?.serviceId || "",
+      clientPhone: isAdmin ? appointment?.clientPhone || "" : undefined,
+      status: isAdmin ? appointment?.status || "" : "pending",
+    });
+    setSelectedDate(initialScheduledAt);
+    setSelectedHour(initialScheduledAt ? format(initialScheduledAt, "HH:mm") : "08:00");
+  }, [appointment, isAdmin]);
 
   const validateForm = () => {
     if (!formData.clientName) {
@@ -152,22 +163,15 @@ export default function DetailScheduleForm({
   const handleConfirmAction = async () => {
     if (!appointment?.id) return;
 
-    if (!isAdmin && !canUserEdit) {
-      console.log(userData)
-      console.log(isAdmin)
+    if (isClient && !canClientEdit) {
       toast.error(
         "Não é possível atualizar, pois o agendamento está muito próximo. Poderia reagendar se a data fosse maior que dois dias. Entre em contato com a dona (16) 98845-3464.",
-        {
-          duration: 10000,
-          position: "top-right",
-        }
+        { duration: 10000, position: "top-right" }
       );
       return;
     }
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
     setError(null);
@@ -177,8 +181,8 @@ export default function DetailScheduleForm({
         clientName: formData.clientName,
         serviceId: formData.serviceId,
         scheduledAt: formData.scheduledAt,
-        clientPhone: formData.clientPhone,
-        status: isAdmin ? formData.status : "pending", 
+        ...(isAdmin && { clientPhone: formData.clientPhone }),
+        ...(isAdmin && { status: formData.status }),
       };
 
       await updateStatusSchedule(appointment.id, userId, updatedData);
@@ -198,6 +202,40 @@ export default function DetailScheduleForm({
         { position: "top-center" }
       );
       console.error("Erro ao atualizar o agendamento:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFinishAction = async () => {
+    if (!appointment?.id || !isAdmin) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const updatedData: Partial<Appointment> = {
+        status: "finished",
+      };
+
+      await updateStatusSchedule(appointment.id, userId, updatedData);
+      onUpdate(appointment.id, updatedData);
+      onConfirm(appointment.id);
+      toast.success("Agendamento finalizado com sucesso.", { position: "top-center" });
+      onClose();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Erro ao finalizar o agendamento. Tente novamente."
+      );
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao finalizar o agendamento. Tente novamente.",
+        { position: "top-center" }
+      );
+      console.error("Erro ao finalizar o agendamento:", error);
     } finally {
       setIsLoading(false);
     }
@@ -227,7 +265,7 @@ export default function DetailScheduleForm({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px] rounded-lg bg-white shadow-xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold" >
+          <DialogTitle className="text-2xl font-bold">
             Detalhes do Agendamento
           </DialogTitle>
         </DialogHeader>
@@ -245,7 +283,7 @@ export default function DetailScheduleForm({
                   value={formData.clientName || ""}
                   onChange={handleChange}
                   className="border-violet-200 focus:ring-violet-500"
-                  disabled={!isAdmin || isLoading}
+                  disabled={!isAdmin || isLoading} // Apenas Admin edita
                 />
               </div>
               {isAdmin && (
@@ -415,13 +453,32 @@ export default function DetailScheduleForm({
           )}
         </div>
         <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-          <Button
-            onClick={handleConfirmAction}
-            className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto"
-            disabled={isLoading}
-          >
-            {isLoading ? "Atualizando..." : "Confirmar"}
-          </Button>
+          {isAdmin ? (
+            <>
+              <Button
+                onClick={handleConfirmAction}
+                className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto"
+                disabled={isLoading}
+              >
+                {isLoading ? "Atualizando..." : "Confirmar"}
+              </Button>
+              <Button
+                onClick={handleFinishAction}
+                className="w-full bg-green-600 hover:bg-green-500 sm:w-auto"
+                disabled={isLoading || formData.status === "finished"}
+              >
+                {isLoading ? "Finalizando..." : "Finish"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={handleConfirmAction}
+              className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto"
+              disabled={isLoading}
+            >
+              {isLoading ? "Atualizando..." : "Confirmar"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

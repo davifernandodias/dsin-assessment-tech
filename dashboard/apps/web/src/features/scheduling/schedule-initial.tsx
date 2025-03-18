@@ -9,7 +9,7 @@ import { ClientData } from "@/@types/services";
 export const InitialSchedule = async () => {
   const { userId }: any = await auth();
   const { user } = await getUserByIdAllInformation(userId);
-  const appintmentsInformation = await getAppointmentsByUserId(userId, 0, 10);
+  const appintmentsInformation = await getAppointmentsByUserId(userId, 0, 500);
   const servicesInformation = await getAllServices();
   const usersInformation = await getAllUsersFormAdmin(0,10,userId);
   const {...DataInformation } = { appintmentsInformation, servicesInformation, usersInformation };
@@ -26,10 +26,10 @@ export const InitialSchedule = async () => {
   }
 
   if (user.role === "Admin") {
-    return <ScheduleAdminPanel userId={userId} DataInformation={DataInformation}/>
+    return <ScheduleAdminPanel userId={userId} role={user.role} DataInformation={DataInformation}/>
   } 
   else {
-    return <ClientSchedulePanel clientData={clientData} userId={userId}  userData={user} />
+    return <ClientSchedulePanel  userId={userId} role={user.role} clientData={clientData}  userData={user} />
   }
 
 };

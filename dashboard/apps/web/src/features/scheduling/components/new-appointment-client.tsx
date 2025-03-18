@@ -168,7 +168,6 @@ export default function NewAppointmentForm({
   const availableHours = Array.from({ length: 13 }, (_, i) =>
     `${String(8 + i).padStart(2, "0")}:00`
   );
-
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
