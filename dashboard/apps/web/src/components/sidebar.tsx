@@ -40,16 +40,6 @@ export const  SidebarContent = async () =>  {
           <SidebarItem icon={<Clock />} label="Histórico" path="/history" />
         </Link>
 
-        { user.user.role === "Admin" ? 
-        <Link href={"/calendar"}>
-          <SidebarItem
-            icon={<CalendarDays />}
-            label="Calendário"
-            path="/calendar"
-          />
-        </Link>
-        : ""
-        }
       </nav>
     </aside>
   );
