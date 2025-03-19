@@ -40,7 +40,7 @@ O projeto usa dois arquivos `.env` devido à limitação do frontend em acessar 
 Crie um arquivo `.env` na raiz do projeto e configure conforme abaixo:
 
 ```env
-API_URL_FRONTEND_LOCAL=http://localhost:3000/
+API_URL_FRONTEND_LOCAL=http://localhost:3000
 API_PORT=8080
 LOG_LEVEL=info
 DATABASE_URL=postgresql://postgres:senha@localhost:5432/ecommecer
