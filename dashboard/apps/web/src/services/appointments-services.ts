@@ -1,3 +1,4 @@
+
 const URL_API_BACKEND = process.env.NEXT_PUBLIC_URL_BACKEND;
 
 if (!URL_API_BACKEND) {
