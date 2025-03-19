@@ -43,9 +43,17 @@ Crie um arquivo `.env` na raiz do projeto e configure conforme abaixo:
 API_URL_FRONTEND_LOCAL=http://localhost:3000
 API_PORT=8080
 LOG_LEVEL=info
-DATABASE_URL=POSTGRES_URL=postgresql://postgres:davi@localhost:5432/ecommecer
+DATABASE_URL=postgresql://postgres:davi@localhost:5432/ecommecer
 ```
 
+### Crie uma conta no clerk
+
+- https://clerk.com/
+
+- após criar entre nesse link https://dashboard.clerk.com/last-active?path=api-keys
+- ou
+- acesse configurações e vai em api keys após isso coloque nessa env as public key e secret key.
+  
 Para o frontend (`web/`), crie um arquivo `.env`:
 
 ```env
@@ -56,6 +64,8 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/agenda
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/agenda
 ```
+
+
 
 ### 3. Subir o Banco de Dados com Docker
 
