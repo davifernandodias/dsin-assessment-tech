@@ -4,9 +4,8 @@ import { UserJSON, WebhookEvent } from "@clerk/nextjs/server";
 import { headers } from "next/headers";
 import { Webhook } from "svix";
 import { db } from "@repo/db/client";
-import { insertUserRuleSchema, users, usersHasRules } from "@repo/db/schema";
 import { eq } from "@repo/db";
-import { insertUserSchema } from "@repo/db/schema"; // Importe o schema Zod
+import { insertUserSchema, users } from "@repo/db/schema"; // Importe o schema Zod
 
 const verifyPayload = async (req: NextRequest) => {
   const payloadString = await req.text();
@@ -55,24 +54,21 @@ export async function POST(req: NextRequest) {
 
 const handleUserCreated = async (data: UserJSON) => {
   console.log("Criando usuário no banco:", data.id);
+  try {
+    const userData = insertUserSchema.parse({
+      id: data.id,
+      email: data.email_addresses[0]?.email_address,
+      name:
+        data.username ??
+        `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim(),
+      image: data.image_url,
+      role: "Client",
+    });
 
-  const userData = insertUserSchema.parse({
-    id: data.id,
-    email: data.email_addresses[0]?.email_address,
-    name:
-      data.username ??
-      `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim(),
-    image: data.image_url,
-  });
-
-  await db.insert(users).values(userData);
-
-  const userRuleData = insertUserRuleSchema.parse({
-    userId: data.id,
-    rule: "Client",
-  });
-
-  await db.insert(usersHasRules).values(userRuleData);
+    await db.insert(users).values(userData);
+  } catch (error) {
+    console.error("Error ao criar user com clerk: ", error);
+  }
 };
 
 const handleUserDeleted = async (userId: string) => {

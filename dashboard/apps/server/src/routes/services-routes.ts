@@ -1,137 +1,126 @@
 import express, { NextFunction, Request, Response, Router } from "express";
 import { db } from "@repo/db/client";
 import { eq } from "@repo/db";
-import { insertServiceSchema, services, usersHasRules } from "@repo/db/schema";
+import { insertServiceSchema, services, serviceTypes, insertServiceTypeSchema } from "@repo/db/schema";
 import logger from "../utils/logger";
 
 const servicesRoutes = Router();
 
-servicesRoutes.post("/services", async (req: Request, res: Response, next: NextFunction) => {
-  try {
+servicesRoutes.post(
+  "/services",
+  async (req: Request, res: Response, next: NextFunction) => {
     const currentUserId = req.query.userId as string | undefined;
 
+    logger.info({ body: req.body, query: req.query }, "Requisição POST /services");
+
     if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+      logger.warn("ID do usuário não fornecido");
+      return res
+        .status(400)
+        .json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
     }
 
     const result = insertServiceSchema.safeParse(req.body);
 
     if (!result.success) {
+      logger.warn({ errors: result.error.errors }, "Validação falhou no POST /services");
       return res.status(400).json({
         error: "Validação falhou",
         details: result.error.errors,
       });
     }
 
-    const { type, description, price, scheduledAt, status } = result.data;
+    const { typeId, description, price, durationMinutes } = result.data;
+
+    const [existingTypeById] = await db
+      .select()
+      .from(serviceTypes)
+      .where(eq(serviceTypes.id, typeId))
+      .execute();
+
+    if (!existingTypeById) {
+      const newServiceType = {
+        id: typeId, 
+        name: typeId, 
+      };
+
+      const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
+      if (!typeResult.success) {
+        logger.warn({ errors: typeResult.error.errors }, "Validação do novo tipo de serviço falhou");
+        return res.status(400).json({
+          error: "Validação do tipo de serviço falhou",
+          details: typeResult.error.errors,
+        });
+      }
+
+      const insertedTypes = await db
+        .insert(serviceTypes)
+        .values(newServiceType)
+        .returning();
+
+      const insertedType = insertedTypes[0];
+      if (!insertedType) {
+        logger.error("Falha ao inserir novo tipo de serviço");
+        return res.status(500).json({ error: "Erro ao criar tipo de serviço" });
+      }
+
+      logger.info({ serviceType: insertedType }, "Novo tipo de serviço criado com sucesso");
+    }
 
     const newService = {
       id: crypto.randomUUID(),
-      type,
+      typeId, 
       description: description || null,
       price: price.toString(),
-      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      status: status || "pending",
-      createdBy: currentUserId,
+      durationMinutes,
       createdAt: new Date(),
     };
 
-    const [insertedService] = await db.insert(services).values(newService).returning();
+    try {
+      const [insertedService] = await db
+        .insert(services)
+        .values(newService)
+        .returning();
 
-    return res.status(201).json({
-      message: "Serviço criado com sucesso",
-      service: insertedService,
-    });
-  } catch (error) {
-    if (error instanceof Error) {
-      logger.error({ error: error.message }, "Erro ao criar serviço");
-      return res.status(500).json({ error: "Erro ao salvar agendamento" });
-    } else {
-      logger.error({ error }, "Erro desconhecido");
-      return res.status(500).json({ error: "Erro desconhecido ocorreu" });
+      logger.info({ service: insertedService }, "Serviço criado com sucesso");
+      return res.status(201).json({
+        message: "Serviço criado com sucesso",
+        service: insertedService,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        logger.error({ error: error.message }, "Erro ao criar serviço");
+        return res.status(500).json({ error: "Erro ao salvar serviço" });
+      } else {
+        logger.error({ error }, "Erro desconhecido ao criar serviço");
+        return res.status(500).json({ error: "Erro desconhecido ocorreu" });
+      }
     }
   }
-});
+);
 
-servicesRoutes.get("/services", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const currentUserId = req.query.userId as string | undefined;
-
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
-    }
-
-    const [userRule] = await db
-      .select()
-      .from(usersHasRules)
-      .where(eq(usersHasRules.userId, currentUserId))
-      .execute();
-
-    const isAdmin = userRule?.rule === "Admin";
-
-    let serviceList;
-
-    if (isAdmin) {
-      serviceList = await db.select().from(services).execute();
-    } else {
-      serviceList = await db
-        .select()
-        .from(services)
-        .where(eq(services.createdBy, currentUserId))
-        .execute();
-    }
-
-    return res.status(200).json(serviceList);
-  } catch (error) {
-    logger.error({ error }, "Erro ao resgatar serviços");
-    return res.status(500).json({ error: "Falha ao buscar serviços" });
-  }
-});
-
-servicesRoutes.get("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try {
+servicesRoutes.put(
+  "/services/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({ error: "ID do serviço é obrigatório" });
-    }
-
-    const service = await db
-      .select()
-      .from(services)
-      .where(eq(services.id, id))
-      .execute();
-
-    if (service.length === 0) {
-      return res.status(404).json({ error: "Serviço não encontrado" });
-    }
-
-    return res.status(200).json({
-      message: "Resgatado serviço com sucesso",
-      service: service[0],
-    });
-  } catch (error) {
-    logger.error({ error }, "Erro ao buscar serviço");
-    return res.status(500).json({ error: "Falha ao buscar serviço" });
-  }
-});
-
-servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { id } = req.params;
-    const currentUserId = req.query.userId as string | undefined;
+    logger.info(
+      { body: req.body, params: req.params, query: req.query },
+      "Requisição PUT /services/:id"
+    );
 
     if (!id) {
+      logger.warn("ID do serviço não fornecido");
       return res.status(400).json({ error: "ID do serviço é obrigatório" });
-    }
-
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
     }
 
     const result = insertServiceSchema.partial().safeParse(req.body);
 
     if (!result.success) {
+      logger.warn(
+        { errors: result.error.errors },
+        "Validação falhou no PUT /services/:id"
+      );
       return res.status(400).json({
         error: "Validação falhou",
         details: result.error.errors,
@@ -140,96 +129,281 @@ servicesRoutes.put("/services/:id", async (req: Request, res: Response, next: Ne
 
     const updateData = result.data;
 
-    const [existingService] = await db
-      .select()
-      .from(services)
-      .where(eq(services.id, id))
-      .execute();
+    try {
+      const [existingService] = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, id))
+        .execute();
 
-    if (!existingService) {
-      return res.status(404).json({ error: "Serviço não encontrado" });
+      if (!existingService) {
+        logger.warn({ id }, "Serviço não encontrado para atualização");
+        return res.status(404).json({ error: "Serviço não encontrado" });
+      }
+
+      const updatedFields: Partial<typeof services.$inferInsert> = {};
+
+      if (updateData.typeId) {
+        const [existingTypeById] = await db
+          .select()
+          .from(serviceTypes)
+          .where(eq(serviceTypes.id, updateData.typeId))
+          .execute();
+
+        if (!existingTypeById) {
+          const newServiceType = {
+            id: updateData.typeId, // Usar o typeId enviado como id
+            name: updateData.typeId, // Usar o mesmo valor como nome
+          };
+
+          const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
+          if (!typeResult.success) {
+            logger.warn({ errors: typeResult.error.errors }, "Validação do novo tipo de serviço falhou");
+            return res.status(400).json({
+              error: "Validação do tipo de serviço falhou",
+              details: typeResult.error.errors,
+            });
+          }
+
+          const insertedTypes = await db
+            .insert(serviceTypes)
+            .values(newServiceType)
+            .returning();
+
+          const insertedType = insertedTypes[0];
+          if (!insertedType) {
+            logger.error("Falha ao inserir novo tipo de serviço");
+            return res.status(500).json({ error: "Erro ao criar tipo de serviço" });
+          }
+
+          logger.info({ serviceType: insertedType }, "Novo tipo de serviço criado com sucesso");
+        }
+        updatedFields.typeId = updateData.typeId;
+      }
+
+      if (updateData.description !== undefined) updatedFields.description = updateData.description;
+      if (updateData.price) updatedFields.price = updateData.price.toString();
+      if (updateData.durationMinutes) updatedFields.durationMinutes = updateData.durationMinutes;
+
+      const [updatedService] = await db
+        .update(services)
+        .set(updatedFields)
+        .where(eq(services.id, id))
+        .returning();
+
+      logger.info({ updatedService }, "Serviço atualizado com sucesso");
+      return res.status(200).json({
+        message: "Serviço atualizado com sucesso",
+        service: updatedService,
+      });
+    } catch (error) {
+      logger.error({ error }, "Erro ao atualizar serviço");
+      return res.status(500).json({ error: "Falha ao atualizar serviço" });
     }
-
-    const [userRule] = await db
-      .select()
-      .from(usersHasRules)
-      .where(eq(usersHasRules.userId, currentUserId))
-      .execute();
-
-    const isAdmin = userRule?.rule === "Admin";
-
-    if (existingService.createdBy !== currentUserId && !isAdmin) {
-      return res.status(403).json({ error: "Você não tem permissão para atualizar este serviço" });
-    }
-
-    const updatedFields: Partial<typeof services.$inferInsert> = {};
-    if (updateData.type) updatedFields.type = updateData.type;
-    if (updateData.description !== undefined) updatedFields.description = updateData.description;
-    if (updateData.price) updatedFields.price = updateData.price.toString();
-    if (updateData.scheduledAt) updatedFields.scheduledAt = new Date(updateData.scheduledAt);
-    if (updateData.status) updatedFields.status = updateData.status;
-    if (updateData.createdBy) updatedFields.createdBy = updateData.createdBy;
-
-    const [updatedService] = await db
-      .update(services)
-      .set(updatedFields)
-      .where(eq(services.id, id))
-      .returning();
-
-    return res.status(200).json({
-      message: "Serviço atualizado com sucesso",
-      service: updatedService,
-    });
-  } catch (error) {
-    logger.error({ error }, "Erro ao atualizar serviço");
-    return res.status(500).json({ error: "Falha ao atualizar serviço" });
   }
-});
+);
+servicesRoutes.get(
+  "/services",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const initial = parseInt(req.query.initial as string);
+    const limit = parseInt(req.query.limit as string);
 
-servicesRoutes.delete("/services/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try {
+    logger.info({ query: req.query }, "Requisição GET /services");
+
+    if (isNaN(initial) || isNaN(limit)) {
+      logger.warn("Parâmetros 'initial' e 'limit' são obrigatórios e devem ser números");
+      return res
+        .status(400)
+        .json({ error: "'initial' e 'limit' são obrigatórios e devem ser números" });
+    }
+
+    if (initial < 0 || limit < 0 || limit < initial) {
+      logger.warn("Parâmetros inválidos de 'initial' e 'limit'");
+      return res
+        .status(400)
+        .json({ error: "Parâmetros inválidos de 'initial' e 'limit'" });
+    }
+
+    try {
+      const serviceList = await db
+        .select()
+        .from(services)
+        .limit(limit - initial)
+        .offset(initial)
+        .execute();
+
+      logger.info({ services: serviceList }, "Serviços recuperados com sucesso");
+      return res.status(200).json(serviceList);
+    } catch (error) {
+      logger.error({ error }, "Erro ao resgatar serviços");
+      return res.status(500).json({ error: "Falha ao buscar serviços" });
+    }
+  }
+);
+
+servicesRoutes.get(
+  "/services/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const currentUserId = req.query.userId as string | undefined;
+
+    logger.info({ params: req.params }, "Requisição GET /services/:id");
 
     if (!id) {
+      logger.warn("ID do serviço não fornecido");
       return res.status(400).json({ error: "ID do serviço é obrigatório" });
     }
 
-    if (!currentUserId) {
-      return res.status(400).json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+    try {
+      const service = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, id))
+        .execute();
+
+      if (service.length === 0) {
+        logger.warn({ id }, "Serviço não encontrado");
+        return res.status(404).json({ error: "Serviço não encontrado" });
+      }
+
+      logger.info({ service: service[0] }, "Serviço recuperado com sucesso");
+      return res.status(200).json({
+        message: "Resgatado serviço com sucesso",
+        service: service[0],
+      });
+    } catch (error) {
+      logger.error({ error }, "Erro ao buscar serviço");
+      return res.status(500).json({ error: "Falha ao buscar serviço" });
     }
-
-    const [service] = await db
-      .select()
-      .from(services)
-      .where(eq(services.id, id))
-      .execute();
-
-    if (!service) {
-      return res.status(404).json({ error: "Serviço não encontrado" });
-    }
-
-    const [userRule] = await db
-      .select()
-      .from(usersHasRules)
-      .where(eq(usersHasRules.userId, currentUserId))
-      .execute();
-
-    const isAdmin = userRule?.rule === "Admin";
-
-    if (service.createdBy !== currentUserId && !isAdmin) {
-      return res.status(403).json({ error: "Você não tem permissão para deletar este serviço" });
-    }
-
-    await db.delete(services).where(eq(services.id, id)).execute();
-
-    return res.status(200).json({
-      message: "Serviço deletado com sucesso",
-    });
-  } catch (error) {
-    logger.error({ error }, "Erro ao deletar serviço");
-    return res.status(500).json({ error: "Falha ao deletar serviço" });
   }
-});
+);
+
+servicesRoutes.get(
+  "/service-types",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const initial = parseInt(req.query.initial as string);
+    const limit = parseInt(req.query.limit as string);
+
+    logger.info({ query: req.query }, "Requisição GET /service-types");
+
+    if (isNaN(initial) || isNaN(limit)) {
+      logger.warn("Parâmetros 'initial' e 'limit' são obrigatórios e devem ser números");
+      return res
+        .status(400)
+        .json({ error: "'initial' e 'limit' são obrigatórios e devem ser números" });
+    }
+
+    if (initial < 0 || limit < 0 || limit < initial) {
+      logger.warn("Parâmetros inválidos de 'initial' e 'limit'");
+      return res
+        .status(400)
+        .json({ error: "Parâmetros inválidos de 'initial' e 'limit'" });
+    }
+
+    try {
+      const serviceTypeList = await db
+        .select()
+        .from(serviceTypes)
+        .limit(limit - initial)
+        .offset(initial)
+        .execute();
+
+      logger.info(
+        { serviceTypes: serviceTypeList },
+        "Tipos de serviço recuperados com sucesso"
+      );
+      return res.status(200).json(serviceTypeList);
+    } catch (error) {
+      logger.error({ error }, "Erro ao resgatar tipos de serviço");
+      return res.status(500).json({ error: "Falha ao buscar tipos de serviço" });
+    }
+  }
+);
+
+servicesRoutes.get(
+  "/service-types/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    logger.info({ params: req.params }, "Requisição GET /service-types/:id");
+
+    if (!id) {
+      logger.warn("ID do tipo de serviço não fornecido");
+      return res.status(400).json({ error: "ID do tipo de serviço é obrigatório" });
+    }
+
+    try {
+      const serviceType = await db
+        .select()
+        .from(serviceTypes)
+        .where(eq(serviceTypes.id, id))
+        .execute();
+
+      if (serviceType.length === 0) {
+        logger.warn({ id }, "Tipo de serviço não encontrado");
+        return res.status(404).json({ error: "Tipo de serviço não encontrado" });
+      }
+
+      logger.info(
+        { serviceType: serviceType[0] },
+        "Tipo de serviço recuperado com sucesso"
+      );
+      return res.status(200).json({
+        message: "Resgatado tipo de serviço com sucesso",
+        serviceType: serviceType[0],
+      });
+    } catch (error) {
+      logger.error({ error }, "Erro ao buscar tipo de serviço");
+      return res.status(500).json({ error: "Falha ao buscar tipo de serviço" });
+    }
+  }
+);
+
+servicesRoutes.delete(
+  "/services/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+
+    logger.info(
+      { params: req.params, query: req.query },
+      "Requisição DELETE /services/:id"
+    );
+
+    if (!id) {
+      logger.warn("ID do serviço não fornecido");
+      return res.status(400).json({ error: "ID do serviço é obrigatório" });
+    }
+
+    try {
+      const [service] = await db
+        .select()
+        .from(services)
+        .where(eq(services.id, id))
+        .execute();
+
+      if (!service) {
+        logger.warn({ id }, "Serviço não encontrado para deleção");
+        return res.status(404).json({ error: "Serviço não encontrado" });
+      }
+
+      const typeId = service.typeId;
+      await db.delete(services).where(eq(services.typeId, typeId)).execute();
+
+      await db.delete(serviceTypes).where(eq(serviceTypes.id, typeId)).execute();
+
+      logger.info(
+        { serviceId: id, typeId },
+        "Serviço e tipo de serviço deletados com sucesso"
+      );
+      return res.status(200).json({
+        message: "Serviço e tipo de serviço deletados com sucesso",
+      });
+    } catch (error) {
+      logger.error({ error }, "Erro ao deletar serviço e tipo de serviço");
+      return res
+        .status(500)
+        .json({ error: "Falha ao deletar serviço e tipo de serviço" });
+    }
+  }
+);
 
 export default servicesRoutes;
