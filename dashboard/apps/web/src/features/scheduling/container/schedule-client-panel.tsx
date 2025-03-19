@@ -394,6 +394,7 @@ export default function ClientSchedulePanel({
       )}
 
       <NewAppointmentForm
+        existingAppointments={filteredAppointments}
         isOpen={isNewAppointmentModalOpen}
         onClose={() => setIsNewAppointmentModalOpen(false)}
         services={services}
