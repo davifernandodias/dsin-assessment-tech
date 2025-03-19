@@ -131,7 +131,7 @@ sudo docker exec -it nome-do-container psql -U postgres -d ecommecer -c "UPDATE 
 
 ### Admin
 - Painel com todos os agendamentos filtrados por pendentes e confirmados.
-  ![Image](https://github.com/user-attachments/assets/e61ac643-3782-448d-a7e4-3f149240c783)
+![Image](https://github.com/user-attachments/assets/a42f9b37-a25c-4eda-aa2c-234463269026)
 
 - Dashboard exclusivo para administradores.
   ![Image](https://github.com/user-attachments/assets/2e6d5929-7962-42c5-a9e7-130eff7b5f37)
