@@ -1,7 +1,5 @@
 # Desafio Técnico da Cabeleleila Leila
 
-Bem-vindo ao projeto do desafio técnico da Cabeleireira Leila! Este é um MVP desenvolvido para gerenciar agendamentos de serviços de cabeleireiro, utilizando uma stack moderna e boas práticas de desenvolvimento.
-
 ## Tecnologias Utilizadas
 
 ### Backend
