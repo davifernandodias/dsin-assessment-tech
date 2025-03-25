@@ -41,18 +41,25 @@ usersRoutes.post(
         user: insertedUser,
       });
     } catch (error) {
-      if (error instanceof Error && error.message.includes("duplicate key")) {
-        if (error.message.includes("users_pkey")) {
-          logger.warn({ id }, "ID já está em uso");
-          return res.status(409).json({ error: "ID já está em uso" });
-        } else if (error.message.includes("email")) {
-          logger.warn({ email }, "Email já está em uso");
-          return res.status(409).json({ error: "Email já está em uso" });
-        } else if (error.message.includes("phone")) {
-          logger.warn({ phone }, "Número de telefone já está em uso");
-          return res.status(409).json({ error: "Número de telefone já está em uso" });
+      if (
+        error instanceof Error &&
+        "message" in error &&
+        typeof error.message === "string"
+      ) {
+        if (error.message.includes("duplicate key")) {
+          if (error.message.includes("users_pkey")) {
+            logger.warn({ id }, "ID já está em uso");
+            return res.status(409).json({ error: "ID já está em uso" });
+          } else if (error.message.includes("email")) {
+            logger.warn({ email }, "Email já está em uso");
+            return res.status(409).json({ error: "Email já está em uso" });
+          } else if (error.message.includes("phone")) {
+            logger.warn({ phone }, "Número de telefone já está em uso");
+            return res.status(409).json({ error: "Número de telefone já está em uso" });
+          }
         }
       }
+      
       logger.error({ error }, "Erro ao criar usuário");
       return res.status(500).json({ error: "Erro ao salvar usuário" });
     }
