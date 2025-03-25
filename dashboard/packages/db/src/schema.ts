@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import {
-  pgEnum,
   pgTable,
   text,
   timestamp,

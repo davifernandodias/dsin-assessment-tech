@@ -7,7 +7,7 @@ import * as schema from "./schema";
 
 if (!process.env.POSTGRES_URL)
   throw new Error("Missing POSTGRES_URL environment variable!");
-console.log(process.env.POSTGRES_URL); // Verifique se a variável está sendo lida corretamente
+console.log(process.env.POSTGRES_URL); 
 
 
 const queryClient = postgres(process.env.POSTGRES_URL);
