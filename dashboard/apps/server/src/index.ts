@@ -10,9 +10,6 @@ import appointmentsRoutes from "./routes/appointments-routes";
 
 const app = express();
 
-if (!process.env.API_URL_FRONTEND_LOCAL) {
-  throw new Error("Missing API_URL_FRONTEND_LOCAL environment variable!");
-}
 if (!process.env.API_PORT) {
   throw new Error("Missing API_PORT environment variable!");
 }
