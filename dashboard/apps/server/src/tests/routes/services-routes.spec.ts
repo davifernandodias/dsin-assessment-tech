@@ -1,20 +1,35 @@
 import request from "supertest";
 import { app } from "../../index";
-import { ServicesMock, UserMockClient } from "../mock/mock-api";
+import { ServicesMock, UserMockAdmin, UserMockClient } from "../mock/mock-api";
 
 describe("Services tests", () => {
   it("should create a service with the simulated data, if the service type does not exist it creates one", async () => {
+    const response = await request(app)
+      .post(`/api/services?userId=${UserMockAdmin.id}`)
+      .send(ServicesMock);
+    expect(Array.isArray(response.body)).toBe(false);
+    expect(response.body).toHaveProperty("message", "Serviço criado com sucesso");
+    expect(response.body).toHaveProperty("service");
+    const service = response.body.service;
+    expect(service).toHaveProperty("id");
+
+    console.log("response no test:", response.body);
+  });
+  it("should return an error message warning that only admin can create a service", async () => {
     try {
       const response = await request(app)
         .post(`/api/services?userId=${UserMockClient.id}`)
         .send(ServicesMock);
-      expect(response.body).toHaveProperty("service");
-      expect(response.body.service).toHaveProperty("typeId");
-      expect(response.body.service.id).toBe(ServicesMock.id);
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe("Apenas Admins podem criar serviços");
     } catch (error) {
-      console.log("error ao criar serviço com dados mock: ", error);
+      console.log(
+        "error ao retornar mensagem de erro ao criar serviço com usuário não admin: ",
+        error
+      );
     }
   });
+
   it("shoud return all services", async () => {
     try {
       const response = await request(app).get(
