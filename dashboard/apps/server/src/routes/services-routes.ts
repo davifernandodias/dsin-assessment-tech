@@ -68,7 +68,7 @@ servicesRoutes.post(
     }
 
     const newService = {
-      id: crypto.randomUUID(),
+      id: req.body.id ||crypto.randomUUID(),
       typeId, 
       description: description || null,
       price: price.toString(),
@@ -152,8 +152,8 @@ servicesRoutes.put(
 
         if (!existingTypeById) {
           const newServiceType = {
-            id: updateData.typeId, // Usar o typeId enviado como id
-            name: updateData.typeId, // Usar o mesmo valor como nome
+            id: updateData.typeId, 
+            name: updateData.typeId, 
           };
 
           const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
