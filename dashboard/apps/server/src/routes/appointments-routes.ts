@@ -3,14 +3,10 @@ import logger from "../utils/logger";
 import { db } from "@repo/db/client";
 import { eq, and } from "@repo/db";
 import { appointments, insertAppointmentSchema, users, services } from "@repo/db/schema";
+import { isMoreThanTwoDaysAway } from "../utils/data-recommendation";
 
 const appointmentsRoutes = Router();
 
-const isMoreThanTwoDaysAway = (scheduledAt: Date): boolean => {
-  const now = new Date();
-  const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
-  return scheduledAt.getTime() - now.getTime() > twoDaysInMs;
-};
 
 appointmentsRoutes.post(
   "/appointments",
@@ -81,7 +77,7 @@ appointmentsRoutes.post(
     }
 
     const newAppointment = {
-      id: crypto.randomUUID(),
+      id: req.body.id ||crypto.randomUUID(),
       clientId,
       serviceId,
       scheduledAt,
