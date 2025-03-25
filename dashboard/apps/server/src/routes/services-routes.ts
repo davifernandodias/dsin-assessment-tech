@@ -1,24 +1,53 @@
 import express, { NextFunction, Request, Response, Router } from "express";
 import { db } from "@repo/db/client";
 import { eq } from "@repo/db";
-import { insertServiceSchema, services, serviceTypes, insertServiceTypeSchema } from "@repo/db/schema";
+import { insertServiceSchema, services, serviceTypes, insertServiceTypeSchema, users } from "@repo/db/schema";
 import logger from "../utils/logger";
 
 const servicesRoutes = Router();
 
+const checkUserRole = async (req: Request, res: Response, next: NextFunction) => {
+  const currentUserId = req.query.userId as string | undefined;
+
+  if (!currentUserId) {
+    logger.warn("ID do usuário não fornecido");
+    return res
+      .status(400)
+      .json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
+  }
+
+  try {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, currentUserId))
+      .execute();
+
+    if (!user) {
+      logger.warn({ userId: currentUserId }, "Usuário não encontrado");
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    (req as any).userRole = user.role;
+    next();
+  } catch (error) {
+    logger.error({ error }, "Erro ao verificar role do usuário");
+    return res.status(500).json({ error: "Erro ao verificar permissões" });
+  }
+};
+
+
 servicesRoutes.post(
   "/services",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
-    const currentUserId = req.query.userId as string | undefined;
+    if ((req as any).userRole !== "Admin") {
+      return res.status(403).json({ error: "Apenas Admins podem criar serviços" });
+    }
+
+    const currentUserId = req.query.userId as string;
 
     logger.info({ body: req.body, query: req.query }, "Requisição POST /services");
-
-    if (!currentUserId) {
-      logger.warn("ID do usuário não fornecido");
-      return res
-        .status(400)
-        .json({ error: "ID do usuário é obrigatório (forneça userId na query)" });
-    }
 
     const result = insertServiceSchema.safeParse(req.body);
 
@@ -40,8 +69,8 @@ servicesRoutes.post(
 
     if (!existingTypeById) {
       const newServiceType = {
-        id: typeId, 
-        name: typeId, 
+        id: typeId,
+        name: typeId,
       };
 
       const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
@@ -68,8 +97,8 @@ servicesRoutes.post(
     }
 
     const newService = {
-      id: req.body.id ||crypto.randomUUID(),
-      typeId, 
+      id: req.body.id || crypto.randomUUID(),
+      typeId,
       description: description || null,
       price: price.toString(),
       durationMinutes,
@@ -101,7 +130,12 @@ servicesRoutes.post(
 
 servicesRoutes.put(
   "/services/:id",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
+    if ((req as any).userRole !== "Admin") {
+      return res.status(403).json({ error: "Apenas Admins podem atualizar serviços" });
+    }
+
     const { id } = req.params;
 
     logger.info(
@@ -152,8 +186,8 @@ servicesRoutes.put(
 
         if (!existingTypeById) {
           const newServiceType = {
-            id: updateData.typeId, 
-            name: updateData.typeId, 
+            id: updateData.typeId,
+            name: updateData.typeId,
           };
 
           const typeResult = insertServiceTypeSchema.safeParse(newServiceType);
@@ -202,8 +236,10 @@ servicesRoutes.put(
     }
   }
 );
+
 servicesRoutes.get(
   "/services",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
     const initial = parseInt(req.query.initial as string);
     const limit = parseInt(req.query.limit as string);
@@ -243,6 +279,7 @@ servicesRoutes.get(
 
 servicesRoutes.get(
   "/services/:id",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
@@ -279,6 +316,7 @@ servicesRoutes.get(
 
 servicesRoutes.get(
   "/service-types",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
     const initial = parseInt(req.query.initial as string);
     const limit = parseInt(req.query.limit as string);
@@ -321,6 +359,7 @@ servicesRoutes.get(
 
 servicesRoutes.get(
   "/service-types/:id",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
 
@@ -360,7 +399,12 @@ servicesRoutes.get(
 
 servicesRoutes.delete(
   "/services/:id",
+  checkUserRole,
   async (req: Request, res: Response, next: NextFunction) => {
+    if ((req as any).userRole !== "Admin") {
+      return res.status(403).json({ error: "Apenas Admins podem deletar serviços" });
+    }
+
     const { id } = req.params;
 
     logger.info(
@@ -386,22 +430,30 @@ servicesRoutes.delete(
       }
 
       const typeId = service.typeId;
-      await db.delete(services).where(eq(services.typeId, typeId)).execute();
+      await db.delete(services).where(eq(services.id, id)).execute();
 
-      await db.delete(serviceTypes).where(eq(serviceTypes.id, typeId)).execute();
+      const remainingServices = await db
+        .select()
+        .from(services)
+        .where(eq(services.typeId, typeId))
+        .execute();
+
+      if (remainingServices.length === 0) {
+        await db.delete(serviceTypes).where(eq(serviceTypes.id, typeId)).execute();
+      }
 
       logger.info(
         { serviceId: id, typeId },
-        "Serviço e tipo de serviço deletados com sucesso"
+        "Serviço deletado com sucesso"
       );
       return res.status(200).json({
-        message: "Serviço e tipo de serviço deletados com sucesso",
+        message: "Serviço deletado com sucesso",
       });
     } catch (error) {
-      logger.error({ error }, "Erro ao deletar serviço e tipo de serviço");
+      logger.error({ error }, "Erro ao deletar serviço");
       return res
         .status(500)
-        .json({ error: "Falha ao deletar serviço e tipo de serviço" });
+        .json({ error: "Falha ao deletar serviço" });
     }
   }
 );
