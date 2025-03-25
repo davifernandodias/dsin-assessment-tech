@@ -45,7 +45,6 @@ servicesRoutes.post(
       return res.status(403).json({ error: "Apenas Admins podem criar serviços" });
     }
 
-    const currentUserId = req.query.userId as string;
 
     logger.info({ body: req.body, query: req.query }, "Requisição POST /services");
 

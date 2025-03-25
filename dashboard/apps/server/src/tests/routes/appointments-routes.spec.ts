@@ -2,7 +2,6 @@ import request from "supertest";
 import { app } from "../../index";
 import {
   AppointmentsMock,
-  ServicesMock,
   UserMockClient,
   UserMockAdmin,
 } from "../mock/mock-api";

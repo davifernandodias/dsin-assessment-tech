@@ -26,7 +26,7 @@ export const servicesTypesMock = {
 
 
 export const ServicesMock: Service = {
-  id: "unique-service-id",
+  id: crypto.randomUUID() ,
   typeId: servicesTypesMock.id,
   description: "Descrição do serviço",
   price: "190",
