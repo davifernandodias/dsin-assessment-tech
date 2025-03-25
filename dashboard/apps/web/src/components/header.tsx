@@ -15,7 +15,7 @@ export default function Header () {
   const { user } = useUser();
   return (
     <header>
-      <nav className=" flex dark:bg-gray-950 dark:text-white items-center justify-between w-full">
+      <nav className=" flex dark:bg-gray-950 dark:text-white items-center  justify-between w-full">
         <div className="flex flex-col gap-4">
           <h1 className="font-extralight text-5xl text-purple-900 dark:text-purple-500">Bem vindo, <span className="font-semibold text-purple-950 dark:text-purple-400">{user?.firstName}</span></h1>
           <p className="text-gray-text font-light dark:text-white ">Hoje, dia {day} de {year}.</p>
