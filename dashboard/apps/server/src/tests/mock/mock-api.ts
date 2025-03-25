@@ -1,4 +1,4 @@
-import { User } from "@repo/db/schema";
+import { Appointment, Service, User } from "@repo/db/schema";
 
 export const UserMockAdmin: User = {
   id: "unique-user-id-admin-teste",
@@ -17,4 +17,28 @@ export const UserMockClient: User = {
   phone: "169594032", 
   role: "Client",
   createdAt: null, 
+};
+
+export const servicesTypesMock = {
+  id: "unique-service-type-id",
+  name: "type-teste"
+}
+
+
+export const ServicesMock: Service = {
+  id: "unique-service-id",
+  typeId: servicesTypesMock.id,
+  description: "Descrição do serviço",
+  price: "190",
+  createdAt: null,
+  durationMinutes: 60,
+};
+
+export const AppointmentsMock: Appointment = {
+  id: "unique-appointment-id",
+  serviceId: ServicesMock.id,
+  clientId: UserMockClient.id,
+  scheduledAt: new Date(),
+  status: "pending",
+  createdAt: null,
 };
