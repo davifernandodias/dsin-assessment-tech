@@ -441,14 +441,7 @@ export default function DetailScheduleForm({
                 className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto text-sm sm:text-base"
                 disabled={isLoading}
               >
-                {isLoading ? "Atualizando..." : "Confirmar"}
-              </Button>
-              <Button
-                onClick={handleFinishAction}
-                className="w-full bg-green-600 hover:bg-green-500 sm:w-auto text-sm sm:text-base"
-                disabled={isLoading || formData.status === "finished"}
-              >
-                {isLoading ? "Finalizando..." : "Finalizar"}
+                {isLoading ? "Atualizando..." : "Salvar"}
               </Button>
             </>
           ) : (
@@ -457,7 +450,7 @@ export default function DetailScheduleForm({
               className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto text-sm sm:text-base"
               disabled={isLoading}
             >
-              {isLoading ? "Atualizando..." : "Confirmar"}
+              {isLoading ? "Atualizando..." : "Salvar"}
             </Button>
           )}
         </DialogFooter>

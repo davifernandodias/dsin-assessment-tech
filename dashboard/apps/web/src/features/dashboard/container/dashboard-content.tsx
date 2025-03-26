@@ -364,19 +364,19 @@ export default function Dashboard({ dashboardData }: DashboardProps) {
             <TabsList className="bg-pink-100 p-1">
               <TabsTrigger
                 value="overview"
-                className="data-[state=active]:bg-white data-[state=active]:text-pink-700"
+                className="data-[state=active]:bg-white cursor-pointer data-[state=active]:text-pink-700"
               >
                 Visão Geral
               </TabsTrigger>
               <TabsTrigger
                 value="services"
-                className="data-[state=active]:bg-white data-[state=active]:text-purple-700"
+                className="data-[state=active]:bg-white cursor-pointer data-[state=active]:text-purple-700"
               >
                 Serviços
               </TabsTrigger>
               <TabsTrigger
                 value="revenue"
-                className="data-[state=active]:bg-white data-[state=active]:text-fuchsia-700"
+                className="data-[state=active]:bg-white cursor-pointer data-[state=active]:text-fuchsia-700"
               >
                 Receita
               </TabsTrigger>

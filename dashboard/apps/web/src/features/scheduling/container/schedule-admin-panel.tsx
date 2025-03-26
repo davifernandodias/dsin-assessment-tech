@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarIcon, Filter, Plus } from "lucide-react";
+import { CalendarIcon, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -101,14 +95,14 @@ export default function ScheduleAdminPanel({
       pending: "pendente",
       confirmed: "confirmado",
       canceled: "cancelado",
-      finished: "finalizado", // Adicionado para consistência
+      finished: "finalizado", 
     };
     const translatedStatus = statusMap[status.toLowerCase()] || status.toLowerCase();
     const variants = {
       confirmado: "bg-green-500 hover:bg-green-600",
       pendente: "bg-amber-500 hover:bg-amber-600",
       cancelado: "bg-rose-500 hover:bg-rose-600",
-      finalizado: "bg-gray-500 hover:bg-gray-600", // Adicionado para consistência
+      finalizado: "bg-gray-500 hover:bg-gray-600",
     };
     return (
       <Badge
@@ -273,24 +267,6 @@ export default function ScheduleAdminPanel({
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full max-w-xs border-violet-200 transition-all duration-200 focus-visible:ring-violet-500 sm:w-auto"
                       />
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="border-violet-200 hover:bg-violet-50"
-                          >
-                            <Filter className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Todos</DropdownMenuItem>
-                          <DropdownMenuItem>Confirmados</DropdownMenuItem>
-                          <DropdownMenuItem>Pendentes</DropdownMenuItem>
-                          <DropdownMenuItem>Cancelados</DropdownMenuItem>
-                          <DropdownMenuItem>Finalizados</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
