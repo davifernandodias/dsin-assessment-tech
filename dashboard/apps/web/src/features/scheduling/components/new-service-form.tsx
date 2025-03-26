@@ -10,15 +10,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createService } from "../actions";
+import { Service } from "@/@types/services";
 
-interface Service {
-  id: string;
-  typeId: string;
-  description: string;
-  price: string;
-  durationMinutes: number;
-  createdAt: string;
-}
 
 interface NewServiceFormProps {
   isOpen: boolean;

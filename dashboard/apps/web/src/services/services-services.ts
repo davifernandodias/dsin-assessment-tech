@@ -10,30 +10,43 @@ if (!URL_API_BACKEND) {
 }
 
 export const getAllServices = async (
-  ids?: string[],
   initial: number = 0,
-  limit: number = 100
-) => {
+  limit: number = 100,
+  userId?: string
+): Promise<Service[] | { error: string }> => {
+  // Validação dos parâmetros
   if (isNaN(initial)) initial = 0;
   if (isNaN(limit)) limit = 10;
   if (initial < 0) initial = 0;
   if (limit < 0) limit = 10;
 
   try {
-    let url = `${URL_API_BACKEND}/api/services?initial=${initial}&limit=${limit}`;
-    if (ids && ids.length > 0) {
-      url += `&ids=${ids.join(",")}`;
+    // Construção segura da URL
+    const urlParams = new URLSearchParams({
+      initial: initial.toString(),
+      limit: limit.toString(),
+    });
+    if (userId) {
+      urlParams.append("userId", userId);
     }
 
-    const response = await fetch(url);
+    const url = `${URL_API_BACKEND}/api/services?${urlParams.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
     if (!response.ok) {
+      const errorText = await response.text();
       throw new Error(
-        `Erro na requisição: ${response.status} - ${response.statusText}`
+        `Erro na requisição: ${response.status} - ${errorText || response.statusText}`
       );
     }
 
-    const data = await response.json();
+    const data: Service[] = await response.json();
     return data;
   } catch (error) {
     console.error("Erro ao buscar serviços:", error);

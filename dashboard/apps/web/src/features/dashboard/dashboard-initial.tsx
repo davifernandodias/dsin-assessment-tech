@@ -8,7 +8,8 @@ import Dashboard from "./container/dashboard-content";
 export const DashboardInitial = async () => {
   const { userId }: any = await auth();
   const allUsers = await getAllUsersFormAdmin(0,1000, userId);
-  const allServices = await getAllServices();
+  const allServicesResponse = await getAllServices(0, 500, userId);
+  const allServices = Array.isArray(allServicesResponse) ? allServicesResponse : [];
   const allAppointments = await getAppointmentsByUserId(userId,0, 1000);
   const {...allDataInformation } = { allUsers, allServices, allAppointments };
   return (

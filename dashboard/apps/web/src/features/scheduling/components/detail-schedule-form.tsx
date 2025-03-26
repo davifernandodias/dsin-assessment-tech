@@ -28,26 +28,7 @@ import { format, setHours, setMinutes, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { updateStatusSchedule } from "../actions";
 import { toast } from "sonner";
-
-interface Appointment {
-  id: string;
-  clientId: string;
-  serviceId: string;
-  scheduledAt: string;
-  status: string;
-  createdAt: string;
-  clientName: string;
-  clientPhone: string | null;
-}
-
-interface Service {
-  id: string;
-  typeId: string;
-  description: string;
-  price: string;
-  durationMinutes: number;
-  createdAt: string;
-}
+import { Appointment, Service } from "@/@types/services";
 
 interface DetailScheduleFormProps {
   isOpen: boolean;
@@ -82,8 +63,8 @@ export default function DetailScheduleForm({
     clientName: appointment?.clientName || "",
     scheduledAt: appointment?.scheduledAt || "",
     serviceId: appointment?.serviceId || "",
-    clientPhone: isAdmin ? appointment?.clientPhone || "" : undefined, 
-    status: isAdmin ? appointment?.status || "" : "pending", 
+    clientPhone: isAdmin ? appointment?.clientPhone || "" : undefined,
+    status: isAdmin ? appointment?.status || "" : "pending",
   });
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialScheduledAt);
@@ -263,16 +244,16 @@ export default function DetailScheduleForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] rounded-lg bg-white shadow-xl">
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-[700px] rounded-lg bg-white shadow-xl p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
+          <DialogTitle className="text-xl sm:text-2xl font-bold text-center sm:text-left">
             Detalhes do Agendamento
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+        <div className="space-y-4 sm:space-y-6 py-4">
+          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
           {appointment && service ? (
-            <>
+            <div className="grid grid-cols-1 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <Label htmlFor="clientName" className="text-sm font-medium text-gray-700">
                   {isAdmin ? "Nome do Cliente" : "Meu Nome"}
@@ -282,8 +263,8 @@ export default function DetailScheduleForm({
                   name="clientName"
                   value={formData.clientName || ""}
                   onChange={handleChange}
-                  className="border-violet-200 focus:ring-violet-500"
-                  disabled={!isAdmin || isLoading} // Apenas Admin edita
+                  className="w-full border-violet-200 focus:ring-violet-500"
+                  disabled={!isAdmin || isLoading}
                 />
               </div>
               {isAdmin && (
@@ -296,7 +277,7 @@ export default function DetailScheduleForm({
                     name="clientPhone"
                     value={formData.clientPhone || ""}
                     onChange={handleChange}
-                    className="border-violet-200 focus:ring-violet-500"
+                    className="w-full border-violet-200 focus:ring-violet-500"
                     disabled={isLoading}
                   />
                 </div>
@@ -309,19 +290,19 @@ export default function DetailScheduleForm({
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-between border-violet-200 text-left hover:bg-violet-50"
+                      className="w-full justify-between border-violet-200 text-left hover:bg-violet-50 text-sm sm:text-base"
                       disabled={isLoading}
                     >
                       {currentService ? getServiceName(currentService) : "Selecione um serviço"}
                       <span className="ml-2">▼</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full">
+                  <DropdownMenuContent className="w-full max-h-60 overflow-y-auto">
                     {services.map((svc) => (
                       <DropdownMenuItem
                         key={svc.id}
                         onClick={() => handleServiceSelect(svc.id)}
-                        className="cursor-pointer hover:bg-violet-100"
+                        className="cursor-pointer hover:bg-violet-100 text-sm sm:text-base"
                       >
                         {getServiceName(svc)}
                       </DropdownMenuItem>
@@ -334,7 +315,7 @@ export default function DetailScheduleForm({
                 <Accordion type="single" collapsible className="w-full">
                   <AccordionItem value="calendar">
                     <AccordionTrigger
-                      className="flex items-center justify-between border border-violet-200 rounded-md px-3 py-2 hover:bg-violet-50"
+                      className="flex items-center justify-between border border-violet-200 rounded-md px-3 py-2 hover:bg-violet-50 text-sm sm:text-base"
                       disabled={isLoading}
                     >
                       <span>
@@ -344,22 +325,22 @@ export default function DetailScheduleForm({
                       </span>
                     </AccordionTrigger>
                     <AccordionContent className="p-2 border border-t-0 border-violet-200 rounded-b-md">
-                      <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                         <Calendar
                           mode="single"
                           selected={selectedDate}
                           onSelect={handleDateSelect}
                           locale={ptBR}
-                          className="rounded-md border-violet-100"
+                          className="rounded-md border-violet-100 w-full max-w-[300px] mx-auto sm:mx-0"
                           disabled={isLoading}
                         />
-                        <div className="space-y-2">
+                        <div className="space-y-2 w-full max-w-[200px] mx-auto sm:mx-0">
                           <Label className="text-sm font-medium text-gray-700">Horário</Label>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
                                 variant="outline"
-                                className="w-full justify-between border-violet-200 text-left hover:bg-violet-50"
+                                className="w-full justify-between border-violet-200 text-left hover:bg-violet-50 text-sm sm:text-base"
                                 disabled={isLoading}
                               >
                                 {selectedHour || "Selecione um horário"}
@@ -371,7 +352,7 @@ export default function DetailScheduleForm({
                                 <DropdownMenuItem
                                   key={hour}
                                   onClick={() => handleHourSelect(hour)}
-                                  className="cursor-pointer hover:bg-violet-100"
+                                  className="cursor-pointer hover:bg-violet-100 text-sm sm:text-base"
                                 >
                                   {hour}
                                 </DropdownMenuItem>
@@ -399,7 +380,7 @@ export default function DetailScheduleForm({
                       : "N/A"
                   }
                   disabled
-                  className="border-violet-200 bg-gray-100"
+                  className="w-full border-violet-200 bg-gray-100 text-sm sm:text-base"
                 />
               </div>
               {isAdmin && (
@@ -411,7 +392,7 @@ export default function DetailScheduleForm({
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-between border-violet-200 text-left capitalize hover:bg-violet-50"
+                        className="w-full justify-between border-violet-200 text-left capitalize hover:bg-violet-50 text-sm sm:text-base"
                         disabled={isLoading}
                       >
                         {formData.status || "Selecione um status"}
@@ -421,25 +402,25 @@ export default function DetailScheduleForm({
                     <DropdownMenuContent className="w-full">
                       <DropdownMenuItem
                         onClick={() => handleStatusSelect("confirmed")}
-                        className="cursor-pointer hover:bg-violet-100"
+                        className="cursor-pointer hover:bg-violet-100 text-sm sm:text-base"
                       >
                         Confirmado
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleStatusSelect("canceled")}
-                        className="cursor-pointer hover:bg-violet-100"
+                        className="cursor-pointer hover:bg-violet-100 text-sm sm:text-base"
                       >
                         Cancelado
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleStatusSelect("pending")}
-                        className="cursor-pointer hover:bg-violet-100"
+                        className="cursor-pointer hover:bg-violet-100 text-sm sm:text-base"
                       >
                         Pendente
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleStatusSelect("finished")}
-                        className="cursor-pointer hover:bg-violet-100"
+                        className="cursor-pointer hover:bg-violet-100 text-sm sm:text-base"
                       >
                         Finalizado
                       </DropdownMenuItem>
@@ -447,33 +428,33 @@ export default function DetailScheduleForm({
                   </DropdownMenu>
                 </div>
               )}
-            </>
+            </div>
           ) : (
-            <p className="text-gray-500">Nenhum agendamento selecionado.</p>
+            <p className="text-gray-500 text-center">Nenhum agendamento selecionado.</p>
           )}
         </div>
-        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:gap-4">
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:gap-4 sm:justify-end">
           {isAdmin ? (
             <>
               <Button
                 onClick={handleConfirmAction}
-                className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto"
+                className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto text-sm sm:text-base"
                 disabled={isLoading}
               >
                 {isLoading ? "Atualizando..." : "Confirmar"}
               </Button>
               <Button
                 onClick={handleFinishAction}
-                className="w-full bg-green-600 hover:bg-green-500 sm:w-auto"
+                className="w-full bg-green-600 hover:bg-green-500 sm:w-auto text-sm sm:text-base"
                 disabled={isLoading || formData.status === "finished"}
               >
-                {isLoading ? "Finalizando..." : "Finish"}
+                {isLoading ? "Finalizando..." : "Finalizar"}
               </Button>
             </>
           ) : (
             <Button
               onClick={handleConfirmAction}
-              className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto"
+              className="w-full bg-violet-600 hover:bg-violet-500 sm:w-auto text-sm sm:text-base"
               disabled={isLoading}
             >
               {isLoading ? "Atualizando..." : "Confirmar"}
